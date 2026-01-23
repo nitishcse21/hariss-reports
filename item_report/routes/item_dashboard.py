@@ -3,7 +3,7 @@ from sqlalchemy import text
 from typing import Optional
 from datetime import datetime
 from database import engine
-from item_report.utils.common_helper import parse_csv_ids
+from item_report.schemas.item_schema import DashboardRequest
 from item_report.utils.item_dashboard_helper import choose_granularity, UPC_JOIN
 from datetime import datetime
 
@@ -14,41 +14,41 @@ app = APIRouter()
 # -------------------------------------------------------------------
 # DASHBOARD
 # -------------------------------------------------------------------
-@app.get("/item-dashboard")
-def dashboard_kpis(
-    from_date: str,
-    to_date: str,
-    search_type: str = Query("quantity", regex="^(quantity|amount)$"),
-    display_quantity: str = Query("with_free_good"),
+@app.post("/item-report-dashboard")
+def dashboard_kpis(payload: DashboardRequest):
+    from_date_str = payload.from_date
+    to_date_str = payload.to_date
 
-    company_ids: Optional[str] = None,
-    region_ids: Optional[str] = None,
-    area_ids: Optional[str] = None,
-    warehouse_ids: Optional[str] = None,
-    route_ids: Optional[str] = None,
-    item_category_ids: Optional[str] = None,
-    brand_ids: Optional[str] = None,
+    search_type = payload.search_type
+    display_quantity = payload.display_quantity
 
-    item_ids: Optional[str] = None,
-):
+    company_ids = payload.company_ids
+    region_ids = payload.region_ids
+    area_ids = payload.area_ids
+    warehouse_ids = payload.warehouse_ids
+    route_ids = payload.route_ids
+    item_category_ids = payload.item_category_ids
+    brand_ids = payload.brand_ids
+    item_ids = payload.item_ids
 
     # ---------------- DATE PARSE ----------------
     try:
-        from_date = datetime.strptime(from_date, "%Y-%m-%d").date()
-        to_date = datetime.strptime(to_date, "%Y-%m-%d").date()
+        from_date = datetime.strptime(from_date_str, "%Y-%m-%d").date()
+        to_date = datetime.strptime(to_date_str, "%Y-%m-%d").date()
     except ValueError:
         raise HTTPException(400, "Dates must be YYYY-MM-DD")
 
 
     # ---------------- FILTERS ----------------
-    company_ids = parse_csv_ids(company_ids) or []
-    region_ids = parse_csv_ids(region_ids) or []
-    area_ids = parse_csv_ids(area_ids) or []
-    warehouse_ids = parse_csv_ids(warehouse_ids) or []
-    route_ids = parse_csv_ids(route_ids) or []
-    item_category_ids = parse_csv_ids(item_category_ids) or []
-    brand_ids = parse_csv_ids(brand_ids) or []
-    item_ids = parse_csv_ids(item_ids) or []
+    company_ids = company_ids or []
+    region_ids = region_ids or []
+    area_ids = area_ids or []
+    warehouse_ids = warehouse_ids or []
+    route_ids = route_ids or []
+    item_category_ids = item_category_ids or []
+    brand_ids = brand_ids or []
+    item_ids = item_ids or []
+
 
     show_item_ranking = len(item_ids) > 5
 
@@ -449,6 +449,5 @@ def dashboard_kpis(
 
 
     return response
-
 
 
