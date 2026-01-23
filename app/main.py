@@ -14,6 +14,8 @@ from app.sales_report.routes.sales_dashboard import router as sales_dashboard
 from app.sales_report.routes.sales_table import router as sales_table
 from app.sales_report.routes.sales_export import router as sales_export
 
+from app.attendance_report.routes.attendance_filter import router as attendance_filter
+
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Hariss BI Backend (Customer Sales Reporting)")
@@ -33,6 +35,7 @@ app.include_router(sales_dashboard, prefix="/api")
 app.include_router(sales_table, prefix="/api")
 app.include_router(sales_export, prefix="/api")   
 
+app.include_router(attendance_filter, prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,
