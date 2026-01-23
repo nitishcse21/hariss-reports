@@ -5,6 +5,10 @@ from datetime import datetime
 from app.database import engine
 from app.item_report.schemas.item_schema import DashboardRequest
 from app.item_report.utils.item_dashboard_helper import choose_granularity, UPC_JOIN
+from app.database import engine
+from app.item_report.schemas.item_schema import DashboardRequest
+from app.item_report.utils.item_dashboard_helper import choose_granularity, UPC_JOIN
+
 from datetime import datetime
 
 router = APIRouter()
@@ -14,6 +18,7 @@ router = APIRouter()
 # -------------------------------------------------------------------
 # DASHBOARD
 # -------------------------------------------------------------------
+
 @router.post("/item-report-dashboard")
 def dashboard_kpis(payload: DashboardRequest):
     from_date_str = payload.from_date
@@ -449,3 +454,4 @@ def dashboard_kpis(payload: DashboardRequest):
 
 
     return response
+

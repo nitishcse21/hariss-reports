@@ -10,4 +10,5 @@ DB_URL = (
     "@161.35.143.76:5432/productionDev"
 )
 
+
 engine = create_engine(DB_URL, pool_pre_ping=True, future=True)

@@ -18,11 +18,13 @@ class FilterSelection(BaseModel):
     item_ids: Optional[List[int]] = None
     display_quantity: Optional[str] = None 
 
-
 class DashboardRequest(BaseModel):
     from_date: str
     to_date: str
 
+class DashboardRequest(BaseModel):
+    from_date: str
+    to_date: str
     search_type: str = Field("quantity", pattern="^(quantity|amount)$") 
     display_quantity: str = "with_free_good"
 
@@ -34,3 +36,5 @@ class DashboardRequest(BaseModel):
     item_category_ids: Optional[List[int]] = None
     brand_ids: Optional[List[int]] = None
     item_ids: Optional[List[int]] = None
+
+
