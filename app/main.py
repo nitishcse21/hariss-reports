@@ -19,6 +19,10 @@ from app.attendance_report.routes.attendance_table import router as attendance_t
 
 from app.primary_order_report.routes.pmry_ord_dashboard import router as pmry_ord_dashboard
 
+from app.comparison_report.routes.comparison_filter import router as comparison_filter
+from app.comparison_report.routes.comparison_table import router as comparison_table
+from app.comparison_report.routes.comparison_dashboard import router as comparison_dashboard
+
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Hariss BI Backend (Customer Sales Reporting)")
@@ -42,6 +46,10 @@ app.include_router(attendance_filter, prefix="/api")
 app.include_router(attendance_table, prefix="/api")
 
 app.include_router(pmry_ord_dashboard, prefix="/api")
+
+app.include_router(comparison_filter, prefix="/api")
+app.include_router(comparison_table, prefix="/api")
+app.include_router(comparison_dashboard, prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,

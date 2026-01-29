@@ -63,7 +63,7 @@ def pmry_ord_dashboard(filters: PrimaryOrderReportSchema):
             {join_sql}
             WHERE {where_sql}
         """
-        print(sql)
+        
         row = conn.execute(text(sql), params).mappings().first()
         out["kpis"] = {
             "total_orders": row["total_orders"],
