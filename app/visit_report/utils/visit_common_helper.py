@@ -37,23 +37,23 @@ def choose_granularity(from_date_str: str, to_date_str: str) -> tuple[str, str, 
     if days <= 31:
         # day wise
         granularity = "daily"
-        period_label_sql = "TO_CHAR(vp.created_at, 'YYYY-MM-DD')"
-        order_by_sql = "vp.created_at"
+        period_label_sql = "TO_CHAR(vp.visit_start_time, 'YYYY-MM-DD')"
+        order_by_sql = "vp.visit_start_time"
     elif days <= 183:
         # week wise
         granularity = "weekly"
         period_label_sql = """CONCAT(
-        TO_CHAR(DATE_TRUNC('week', vp.created_at), 'DD Mon'),
+        TO_CHAR(DATE_TRUNC('week', vp.visit_start_time), 'DD Mon'),
         ' - ',
-        TO_CHAR(DATE_TRUNC('week', vp.created_at) + INTERVAL '6 days', 'DD Mon')
+        TO_CHAR(DATE_TRUNC('week', vp.visit_start_time) + INTERVAL '6 days', 'DD Mon')
     )
         """
-        order_by_sql = "DATE_TRUNC('week', vp.created_at)"
+        order_by_sql = "DATE_TRUNC('week', vp.visit_start_time)"
     else:
         # month wise
         granularity = "monthly"
-        period_label_sql = "TO_CHAR(date_trunc('month', vp.created_at), 'Mon-YYYY')"
-        order_by_sql = "DATE_TRUNC('month', vp.created_at)"
+        period_label_sql = "TO_CHAR(date_trunc('month', vp.visit_start_time), 'Mon-YYYY')"
+        order_by_sql = "DATE_TRUNC('month', vp.visit_start_time)"
 
     return granularity, period_label_sql, order_by_sql
 
@@ -66,7 +66,7 @@ def build_query_parts(
     where_fragments: List[str] = []
     params: Dict = {}
 
-    where_fragments.append("vp.created_at BETWEEN :from_date AND :to_date")
+    where_fragments.append("vp.visit_start_time BETWEEN :from_date AND :to_date")
     params["from_date"] = filters.from_date
     params["to_date"] = filters.to_date
 
@@ -85,3 +85,28 @@ def build_query_parts(
     joins = list(dict.fromkeys(joins))
 
     return joins, where_fragments, params
+
+
+def build_customer_filter_parts(filters:VisitSchema) -> Tuple[str, Dict]:
+    where_fragments = []
+    params = {}
+    
+    where_fragments.append("sh.requested_date BETWEEN :from_date AND :to_date")
+    params["from_date"] = filters.from_date
+    params["to_date"] = filters.to_date
+
+    if filters.warehouse_ids:
+        where_fragments.append("sh.warehouse_id = ANY(:warehouse_ids)")
+        params["warehouse_ids"] = filters.warehouse_ids
+
+    
+    if filters.route_ids:
+        where_fragments.append("sh.route_id = ANY(:route_ids)")
+        params["route_ids"] = filters.route_ids
+
+    if filters.salesman_ids:
+        where_fragments.append("sh.salesman_id = ANY(:salesman_ids)")
+        params["salesman_ids"] = filters.salesman_ids
+
+    where_sql = " AND ".join(where_fragments)
+    return where_sql, params

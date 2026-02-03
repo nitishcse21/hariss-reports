@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from sqlalchemy import text
 from app.database import engine
 from app.visit_report.schemas.visit_schema import VisitSchema
-from app.visit_report.utils.visit_common_helper import validate_mandatory, choose_granularity, build_query_parts
+from app.visit_report.utils.visit_common_helper import validate_mandatory, choose_granularity, build_query_parts, build_customer_filter_parts
 
 
 router = APIRouter()
@@ -17,6 +17,8 @@ def visit_dashboard(filters: VisitSchema):
     joins, where_fragments, params = build_query_parts(filters)
     where_sql = " AND ".join(where_fragments)
     join_sql_base = "\n".join(joins)
+
+    customer_where_sql, customer_params = build_customer_filter_parts(filters)
 
     if filters.salesman_ids:
         level = "salesman"
@@ -49,15 +51,14 @@ def visit_dashboard(filters: VisitSchema):
         out["kpis"]["total_visits_customers"] = row["total_visits_customers"]
 
 
-        sql = """
-            SELECT COUNT(ac.id) AS total_customers
+        sql = f"""
+           SELECT COUNT(DISTINCT ac.id) AS total_customers
             FROM agent_customers ac
+            JOIN tbl_salesman_warehouse_history sh ON sh.route_id = ac.route_id
             WHERE
-                ac.deleted_at IS NULL
-                AND ac.warehouse = ANY(:warehouse_ids)
-                AND ac.route_id = ANY(:route_ids)
+                {customer_where_sql}
         """
-        row = conn.execute(text(sql), params).mappings().one()
+        row = conn.execute(text(sql), customer_params).mappings().one()
         out["kpis"]["total_customers"] = row["total_customers"]
 
 
