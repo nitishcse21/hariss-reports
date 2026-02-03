@@ -47,17 +47,16 @@ def visit_dashboard(filters: VisitSchema):
        
         row = conn.execute(text(sql), params).mappings().one()
         out["kpis"]["total_visits_customers"] = row["total_visits_customers"]
-        
 
-        sql = f"""
-            SELECT count(DISTINCT vp.customer_id) AS total_customers
-            FROM
-                visit_plan vp
-            {join_sql_base}
+
+        sql = """
+            SELECT COUNT(ac.id) AS total_customers
+            FROM agent_customers ac
             WHERE
-                {where_sql}
+                ac.deleted_at IS NULL
+                AND ac.warehouse = ANY(:warehouse_ids)
+                AND ac.route_id = ANY(:route_ids)
         """
-       
         row = conn.execute(text(sql), params).mappings().one()
         out["kpis"]["total_customers"] = row["total_customers"]
 
