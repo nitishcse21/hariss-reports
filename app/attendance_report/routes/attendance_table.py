@@ -22,13 +22,24 @@ def attendance_table(
     join_sql = "\n".join(joins)
     where_sql = " AND ".join(where_fragments)
 
+
+    salesman_type_id = f"""
+        SELECT id FROM salesman_types WHERE LOWER(salesman_type_name) = :search_type
+    """
+    with engine.connect() as conn:
+        salsman_type = conn.execute(
+            text(salesman_type_id), {"search_type": filters.search_type.lower()}
+        ).scalar()
+
+        salsman_type = f"s.type = {salsman_type}"
+    
    
-    if filters.search_type.lower() == "projects":
-        salsman_type_id = "s.type = 6"
-    elif filters.search_type.lower() == "salesman":
-        salsman_type_id = "s.type = 3"
-    else:
-        salsman_type_id = "s.type = 2"
+    # if filters.search_type.lower() == "projects":
+    #     salsman_type_id = "s.type = 6"
+    # elif filters.search_type.lower() == "salesman":
+    #     salsman_type_id = "s.type = 3"
+    # else:
+    #     salsman_type_id = "s.type = 2"
 
     base_sql = f"""
         FROM salesman_attendance AS sa
@@ -36,7 +47,7 @@ def attendance_table(
         {join_sql}
         JOIN salesman s ON s.id = sa.salesman_id
         JOIN salesman_types st ON st.id = s.type
-        WHERE {where_sql} AND {salsman_type_id}
+        WHERE {where_sql} AND {salsman_type}
     """
 
     
