@@ -1,8 +1,16 @@
-from datetime import datetime
-
-
+from typing import Optional, List
 from datetime import date
 
+
+def parse_csv_ids(s: Optional[str]) -> Optional[List[int]]:
+    if not s:
+        return None
+    parts = [p.strip() for p in s.split(",") if p.strip() != ""]
+    try:
+        return [int(p) for p in parts]
+    except ValueError:
+        return None
+    
 
 
 def choose_granularity(from_date: date, to_date: date, date_col: str):
@@ -30,14 +38,3 @@ def choose_granularity(from_date: date, to_date: date, date_col: str):
         order_sql = f"DATE_TRUNC('month', {date_col})"
 
     return granularity, period_sql, order_sql
-
-
-UPC_JOIN = """
-LEFT JOIN (
-    SELECT item_id, MAX(upc::numeric) AS upc
-    FROM item_uoms
-    WHERE upc ~ '^[0-9]+(\\.[0-9]+)?$'
-    GROUP BY item_id
-) iu ON iu.item_id = ms.item_id
-"""
-

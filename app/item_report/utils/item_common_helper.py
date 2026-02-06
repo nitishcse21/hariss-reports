@@ -1,4 +1,4 @@
-from typing import Optional, List
+
 from datetime import datetime
 from app.item_report.schemas.item_schema import FilterSelection
 from fastapi import HTTPException
@@ -76,9 +76,9 @@ def build_query_parts(
 
 
     if filters.company_ids:
-        # joins.append(
-        #     "JOIN tbl_warehouse w ON w.id = ih.warehouse_id"
-        # )
+        joins.append(
+            "JOIN tbl_warehouse w ON w.id = ih.warehouse_id"
+        )
         where_fragments.append(
             "ih.company_id = ANY(:company_ids)"
         )

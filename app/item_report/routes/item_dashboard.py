@@ -55,9 +55,7 @@ def dashboard_kpis(payload: DashboardRequest):
     item_ids = item_ids or []
 
 
-    show_item_ranking = len(item_ids) > 5
 
-    show_item_ranking = len(item_ids) > 5
 
     params = {
         "from_date": from_date,
@@ -117,6 +115,8 @@ def dashboard_kpis(payload: DashboardRequest):
 
     where_sql = " AND ".join(filters)
 
+
+
     # ---------------- VALUE EXPRESSION ----------------
     if search_type == "quantity":
         sales_expr = """
@@ -157,26 +157,34 @@ def dashboard_kpis(payload: DashboardRequest):
         purchase_expr = "SUM(hid.item_price)"
         return_expr = "SUM(rd.item_value)"
 
-    granularity, period_sql, order_sql = choose_granularity(
-        from_date, to_date
+
+    granularity, sales_period_sql, sales_order_sql = choose_granularity(
+        from_date, to_date, "ms.invoice_date"
     )
 
-    # ---------------- PERIOD EXPRESSIONS FOR NON-MV TABLES ----------------
-    if granularity == "daily":
-        purchase_period = "DATE(hih.invoice_date)"
-        return_period = "DATE(rh.created_at)"
-    elif granularity == "weekly":
-        purchase_period = "TO_CHAR(hih.invoice_date, 'IYYY-IW')"
-        return_period = "TO_CHAR(rh.created_at, 'IYYY-IW')"
-    elif granularity == "monthly":
-        purchase_period = "TO_CHAR(hih.invoice_date, 'YYYY-MM')"
-        return_period = "TO_CHAR(rh.created_at, 'YYYY-MM')"
-    else:
-        purchase_period = "TO_CHAR(hih.invoice_date, 'YYYY')"
-        return_period = "TO_CHAR(rh.created_at, 'YYYY')"
+    _, purchase_period_sql, purchase_order_sql = choose_granularity(
+        from_date, to_date, "hih.invoice_date"
+    )
+
+    _, return_period_sql, return_order_sql = choose_granularity(
+        from_date, to_date, "rh.created_at"
+    )
+
 
 
     with engine.connect() as conn:
+        show_item_ranking = False
+        item_count = 0
+
+        if level in ITEM_LEVELS:
+            item_count = conn.execute(text(f"""
+                SELECT COUNT(DISTINCT ms.item_id)
+                FROM mv_sales_report_fast ms
+                LEFT JOIN items it ON it.id = ms.item_id
+                WHERE {where_sql}
+            """), params).scalar()
+
+            show_item_ranking = item_count > 5
 
         # ================= TOTAL SALES =================
         total_sales = conn.execute(text(f"""
@@ -273,10 +281,10 @@ def dashboard_kpis(payload: DashboardRequest):
 
 
 
-        # ================= SALES TREND =================
+
         sales_trend = conn.execute(text(f"""
             SELECT
-                {period_sql} AS period,
+                {sales_period_sql} AS period,
                 ROUND(
                     COALESCE(SUM({sales_value_expr}), 0)::numeric,
                     3
@@ -285,37 +293,38 @@ def dashboard_kpis(payload: DashboardRequest):
             {UPC_JOIN}
             LEFT JOIN items it ON it.id = ms.item_id
             WHERE {where_sql}
-            GROUP BY period, {order_sql}
-            ORDER BY {order_sql}
+            GROUP BY period, {sales_order_sql}
+            ORDER BY {sales_order_sql}
         """), params).mappings().all()
 
 
-        # ================= PURCHASE TREND =================
         purchase_trend = conn.execute(text(f"""
             SELECT
-                {purchase_period} AS period,
+                {purchase_period_sql} AS period,
                 ROUND(COALESCE({purchase_expr},0)::numeric,3) AS total_purchase
             FROM ht_invoice_detail hid
             JOIN ht_invoice_header hih ON hih.id = hid.header_id
             LEFT JOIN item_uoms iu ON iu.item_id = hid.item_id
             WHERE hih.invoice_date BETWEEN :from_date AND :to_date
-            GROUP BY period
-            ORDER BY period
+            GROUP BY period, {purchase_order_sql}
+            ORDER BY {purchase_order_sql}
         """), params).mappings().all()
 
 
-        # ================= RETURN TREND =================
+
+
         return_trend = conn.execute(text(f"""
             SELECT
-                {return_period} AS period,
+                {return_period_sql} AS period,
                 ROUND(COALESCE({return_expr},0)::numeric,3) AS total_return
             FROM ht_return_details rd
             JOIN ht_return_header rh ON rh.id = rd.header_id
             LEFT JOIN item_uoms iu ON iu.item_id = rd.item_id
             WHERE rh.created_at::date BETWEEN :from_date AND :to_date
-            GROUP BY period
-            ORDER BY period
+            GROUP BY period, {return_order_sql}
+            ORDER BY {return_order_sql}
         """), params).mappings().all()
+
 
 
        

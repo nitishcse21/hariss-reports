@@ -55,8 +55,8 @@ def attendance_table(
             s.osa_code || '-' || s.name AS salesman_name,
             TO_CHAR(sa.time_in, 'HH24:MI:SS') AS time_in,
             TO_CHAR(sa.time_out, 'HH24:MI:SS') AS time_out,
-            sa.in_img,
-            sa.out_img,
+            'https://api.coreexl.com/osa_developmentV2/public/storage/' || sa.in_img AS in_img,
+            'https://api.coreexl.com/osa_developmentV2/public/storage/' || sa.out_img AS out_img,
             st.salesman_type_name
         {base_sql}
         GROUP BY 
