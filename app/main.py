@@ -27,7 +27,12 @@ from app.visit_report.routes.visit_filter import router as visit_filter
 from app.visit_report.routes.visit_dashboard import router as visit_dashboard
 from app.visit_report.routes.visit_table import router as visit_table
 
+from app.dashboard.routes.dashboard_filter import router as dashboard_filter
+from app.dashboard.routes.dashboard_section_1 import router as dashboard_section_1
+from app.dashboard.routes.dashboard_selection_2 import router as dashboard_section_2
+
 from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI(title="Hariss BI Backend (Customer Sales Reporting)")
 
@@ -58,6 +63,10 @@ app.include_router(comparison_dashboard, prefix="/api")
 app.include_router(visit_filter, prefix="/api")
 app.include_router(visit_dashboard, prefix="/api")
 app.include_router(visit_table, prefix="/api")
+
+app.include_router(dashboard_filter, prefix="/api")
+app.include_router(dashboard_section_1, prefix="/api")
+app.include_router(dashboard_section_2, prefix="/api")
 
 
 app.add_middleware(

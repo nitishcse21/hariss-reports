@@ -72,9 +72,9 @@ def build_query_parts(
 
 
     if filters.company_ids:
-        # joins.append(
-        #     "JOIN tbl_warehouse w ON w.id = hth.warehouse_id"
-        # )
+        joins.append(
+            "JOIN tbl_warehouse w ON w.id = hth.warehouse_id"
+        )
         where_fragments.append(
             "hth.company_id = ANY(:company_ids)"
         )
