@@ -18,19 +18,15 @@ from app.dashboard.utils.dashboard_common_helper import (
 router = APIRouter()
 
 
-@router.post("/section_2/data")
-def dashboard_section_2_data(filters: DashboardRequest):
+@router.post("/region_section")
+def dashboard_region_section_data(filters: DashboardRequest):
     validate_mandatory(filters)
 
     granularity, period_label_sql, order_by_sql = choose_granularity(
         filters.from_date, filters.to_date
     )
-    p_gran, p_period_sql, p_order_sql = choose_purchase_granularity(
-        filters.from_date, filters.to_date
-    )
-    r_gran, r_period_sql, r_order_sql = choose_return_granularity(
-        filters.from_date, filters.to_date
-    )
+    p_gran, p_period_sql, p_order_sql = choose_purchase_granularity(filters.from_date, filters.to_date)
+    r_gran, r_period_sql, r_order_sql = choose_return_granularity(filters.from_date, filters.to_date)
 
     joins, where_fragments, params = sales_build_query_parts(filters)
     where_sql = " AND ".join(where_fragments)
@@ -44,12 +40,11 @@ def dashboard_section_2_data(filters: DashboardRequest):
     r_where_sql = " AND ".join(r_where_fragments)
     r_join_sql_base = "\n".join(r_joins)
 
+
     out = {"granularity": granularity, "charts": {}, "trend_line": {}}
 
     with engine.connect() as conn:
-
         quantity = quantity_expr_sql()
-
         sale_base_sql = f"""
                 FROM invoice_headers ih
                 JOIN invoice_details id ON id.header_id = ih.id
@@ -59,34 +54,34 @@ def dashboard_section_2_data(filters: DashboardRequest):
                 GROUP BY item_id
                 ) iu ON iu.item_id = id.item_id
                     {join_sql_base}
-                JOIN tbl_areas a ON a.id = w.area_id
+                JOIN tbl_region r ON r.id = w.region_id
                 WHERE {where_sql}
                 """
-        # Area wise sales
+        # region wise sales
         query = f"""
-                SELECT 
-                a.area_code || '-' || a.area_name AS area_name,
+                SELECT
+                r.region_code || '-' || r.region_name AS region_name,
                 {quantity} AS value
                 {sale_base_sql}
-                GROUP BY a.area_name, a.area_code
+                GROUP BY r.region_name, r.region_code
                 ORDER BY value DESC
                 """
         rows = conn.execute(text(query), params).fetchall()
-        out["charts"]["area_performance"] = [dict(r._mapping) for r in rows]
+        out["charts"]["region_performance"] = [dict(r._mapping) for r in rows]
 
-        # Area wise sales trend
+        # region wise sales trend
         query = f"""
-            SELECT
-            {period_label_sql} AS period_label,
-            a.area_code || '-' || a.area_name AS area_name,
-            {quantity} AS value
-            {sale_base_sql}
-            GROUP BY period_label, a.area_name, a.area_code, {order_by_sql}
-            ORDER BY {order_by_sql}
-            """
+                SELECT 
+                {period_label_sql} AS period_label,
+                r.region_code || '-' || r.region_name AS region_name,
+                {quantity} AS value
+                {sale_base_sql}
+                GROUP BY period_label,r.region_name,r.region_code,{order_by_sql}
+                ORDER BY {order_by_sql}         
+                """
         rows = conn.execute(text(query), params).fetchall()
-        out["trend_line"]["area_performance"] = [dict(r._mapping) for r in rows]
-        
+        out["trend_line"]["sales_trend"] = [dict(r._mapping) for r in rows]
+
 
         purchase_quantity = purchase_quantity_expr_sql()
         purchase_base_sql = f"""
@@ -94,35 +89,33 @@ def dashboard_section_2_data(filters: DashboardRequest):
                 JOIN ht_invoice_detail hid ON hid.header_id = hih.id
                 LEFT JOIN item_uoms iu ON iu.item_id = hid.item_id
                 {p_join_sql_base}
-                JOIN tbl_areas a ON a.id = w.area_id
+                JOIN tbl_region r ON r.id = w.region_id
                 WHERE {p_where_sql}
                 """
-        
-        # Area wise purchase
+        # region wise purchase
         query = f"""
                 SELECT
-                a.area_code || '-' || a.area_name AS area_name,
+                r.region_code || '-' || r.region_name AS region_name,
                 {purchase_quantity} AS value
                {purchase_base_sql}
-                GROUP BY a.area_name, a.area_code
+                GROUP BY r.region_name, r.region_code
                 ORDER BY value DESC
                 """
         rows = conn.execute(text(query), p_params).fetchall()
-        out["charts"]["purchase_area_performance"] = [dict(r._mapping) for r in rows]
+        out["charts"]["purchase_region_performance"] = [dict(r._mapping) for r in rows]
 
-        # Area wise purchase trend
-        query = f"""
+        # region wise purchase trend
+        query = f""" 
                 SELECT
                 {p_period_sql} AS period_label,
-                a.area_code || '-' || a.area_name AS area_name,
-                {purchase_quantity} AS value
+                r.region_code || '-' || r.region_name AS region_name,
+                {purchase_quantity} AS purchase_quantity
                 {purchase_base_sql}
-                GROUP BY period_label,a.area_name,a.area_code,{p_order_sql}
-                ORDER BY {p_order_sql}  
+                GROUP BY period_label,r.region_name,r.region_code,{p_order_sql}
+                ORDER BY {p_order_sql}
                 """
         rows = conn.execute(text(query), p_params).fetchall()
-        out["trend_line"]["purchase_area_performance"] = [dict(r._mapping) for r in rows]
-
+        out["trend_line"]["purchase_trend"] = [dict(r._mapping) for r in rows]
         
         return_quantity = return_quantity_expr_sql()
         return_base_sql = f"""
@@ -130,32 +123,31 @@ def dashboard_section_2_data(filters: DashboardRequest):
                 JOIN ht_return_details hrd ON hrd.header_id = hrh.id
                 LEFT JOIN item_uoms iu ON iu.item_id = hrd.item_id
                 {r_join_sql_base}
-                JOIN tbl_areas a ON a.id = w.area_id
+                JOIN tbl_region r ON r.id = w.region_id
                 WHERE {r_where_sql}
-                """
-        
-        # Area wise return
+                    """
+        # region wise return
         query = f"""
                 SELECT
-                a.area_code || '-' || a.area_name AS area_name,
+                r.region_code || '-' || r.region_name AS region_name,
                 {return_quantity} AS value
                 {return_base_sql}
-                GROUP BY a.area_name, a.area_code
+                GROUP BY r.region_name,r.region_code
                 ORDER BY value DESC
                 """
         rows = conn.execute(text(query), r_params).fetchall()
-        out["charts"]["return_area_performance"] = [dict(r._mapping) for r in rows]
-        
+        out["charts"]["return_region_performance"] = [dict(r._mapping) for r in rows]
+
+        # region wise return trend
         query = f"""
                 SELECT
                 {r_period_sql} AS period_label,
-                a.area_code || '-' || a.area_name AS area_name,
-                {return_quantity} AS value
+                r.region_code || '-' || r.region_name AS region_name,
+                {return_quantity} AS return_quantity
                 {return_base_sql}
-                GROUP BY period_label,a.area_name,a.area_code,{r_order_sql}
+                GROUP BY period_label,r.region_name,r.region_code,{r_order_sql}
                 ORDER BY {r_order_sql}
                 """
         rows = conn.execute(text(query), r_params).fetchall()
-        out["trend_line"]["return_area_performance"] = [dict(r._mapping) for r in rows]
-
+        out["trend_line"]["return_trend"] = [dict(r._mapping) for r in rows]
     return out
