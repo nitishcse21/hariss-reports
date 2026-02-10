@@ -124,7 +124,7 @@ def comparison_dashboard(filters: ComparisonRequest):
         trend = [dict(r._mapping) for r in conn.execute(text(trend_sql), params)]
 
     return {
-        "top_categories_current": top_categories,
-        "top_items_current": top_items,
+        "top_categories": top_categories,
+        "top_items": top_items,
         "trend": trend,
     }
