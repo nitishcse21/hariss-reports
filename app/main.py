@@ -32,6 +32,9 @@ from app.dashboard.routes.dashboard_region_section import router as dashboard_re
 from app.dashboard.routes.dashboard_area_section import router as dashboard_area_section
 from app.dashboard.routes.dashboard_warehouse_section import router as dashboard_warehouse_section
 
+
+from app.promotion_report.routes.promotion_filter import router as promotion_filter
+
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -69,6 +72,9 @@ app.include_router(dashboard_filter, prefix="/api")
 app.include_router(dashboard_region_section, prefix="/api")
 app.include_router(dashboard_area_section, prefix="/api")
 app.include_router(dashboard_warehouse_section, prefix="/api")
+
+app.include_router(promotion_filter, prefix="/api")
+
 
 
 app.add_middleware(

@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 from sqlalchemy import text
 from datetime import datetime
-
 from app.database import engine
 from app.comparison_report.schemas.comparison_schema import ComparisonRequest
 from app.comparison_report.utils.comparison_common_helper import (
@@ -58,29 +57,10 @@ def comparison_dashboard(filters: ComparisonRequest):
 
 
 
-    top_categories_current_sql = f"""
+    top_categories_sql = f"""
         SELECT
-           ic.category_code || '-' || ic.category_name AS item_category_name,
-            {current_expr} AS current_sales
-        FROM invoice_headers ih
-        JOIN invoice_details id ON id.header_id = ih.id
-        JOIN items i ON i.id = id.item_id
-        JOIN item_categories ic ON ic.id = i.category_id
-        LEFT JOIN (
-            SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
-            FROM item_uoms
-            GROUP BY item_id
-        ) iu ON iu.item_id = id.item_id
-        {join_sql}
-        WHERE {where_sql}
-        GROUP BY ic.category_name, ic.category_code
-        ORDER BY current_sales DESC
-        LIMIT 5
-        """
-    
-    top_categories_previous_sql = f"""
-        SELECT
-           ic.category_code || '-' || ic.category_name AS item_category_name,
+        ic.category_name AS item_category_name,
+            {current_expr} AS current_sales,
             {prev_expr} AS previous_sales
         FROM invoice_headers ih
         JOIN invoice_details id ON id.header_id = ih.id
@@ -93,15 +73,17 @@ def comparison_dashboard(filters: ComparisonRequest):
         ) iu ON iu.item_id = id.item_id
         {join_sql}
         WHERE {where_sql}
-        GROUP BY ic.category_name, ic.category_code
-        ORDER BY previous_sales DESC
+        GROUP BY ic.category_name
+        ORDER BY current_sales DESC
         LIMIT 5
         """
 
-    top_items_current_sql = f"""
+
+    top_items_sql = f"""
         SELECT
             i.code || '-' || i.name AS item_name,
-            {current_expr} AS current_sales
+            {current_expr} AS current_sales,
+            {prev_expr} AS previous_sales
         FROM invoice_headers ih
         JOIN invoice_details id ON id.header_id = ih.id
         JOIN items i ON i.id = id.item_id
@@ -116,26 +98,7 @@ def comparison_dashboard(filters: ComparisonRequest):
         ORDER BY current_sales DESC
         LIMIT 5
         """
-    
-    top_items_previous_sql = f"""
-        SELECT
-            i.code || '-' || i.name AS item_name,
-            {prev_expr} AS previous_sales
-        FROM invoice_headers ih
-        JOIN invoice_details id ON id.header_id = ih.id
-        JOIN items i ON i.id = id.item_id
-        LEFT JOIN (
-            SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
-            FROM item_uoms
-            GROUP BY item_id
-        ) iu ON iu.item_id = id.item_id
-        {join_sql}
-        WHERE {where_sql}
-        GROUP BY i.name, i.code
-        ORDER BY previous_sales DESC
-        LIMIT 5
-        """
-    
+
     trend_sql = f"""
         SELECT
             {bucket} AS period,
@@ -156,16 +119,12 @@ def comparison_dashboard(filters: ComparisonRequest):
         """
     
     with engine.connect() as conn:
-        top_categories_current = [dict(r._mapping) for r in conn.execute(text(top_categories_current_sql), params)]
-        top_categories_previous = [dict(r._mapping) for r in conn.execute(text(top_categories_previous_sql), params)]
-        top_items_current = [dict(r._mapping) for r in conn.execute(text(top_items_current_sql), params)]
-        top_items_previous = [dict(r._mapping) for r in conn.execute(text(top_items_previous_sql), params)]
+        top_categories = [dict(r._mapping) for r in conn.execute(text(top_categories_sql), params)]
+        top_items = [dict(r._mapping) for r in conn.execute(text(top_items_sql), params)]
         trend = [dict(r._mapping) for r in conn.execute(text(trend_sql), params)]
 
     return {
-        "top_categories_current": top_categories_current,
-        "top_categories_previous": top_categories_previous,
-        "top_items_current": top_items_current,
-        "top_items_previous": top_items_previous,
+        "top_categories_current": top_categories,
+        "top_items_current": top_items,
         "trend": trend,
     }

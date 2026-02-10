@@ -56,17 +56,17 @@ def sales_build_query_parts(filters: DashboardRequest):
         where_fragments.append("ih.warehouse_id = ANY(:warehouse_ids)")
         params["warehouse_ids"] = filters.warehouse_ids
 
-    if filters.item_category_ids:
-        where_fragments.append("it.category_id = ANY(:item_category_ids)")
-        params["item_category_ids"] = filters.item_category_ids
+    # if filters.item_category_ids:
+    #     where_fragments.append("it.category_id = ANY(:item_category_ids)")
+    #     params["item_category_ids"] = filters.item_category_ids
 
-    if filters.customer_channel_ids:
-        where_fragments.append("c.outlet_channel_id = ANY(:customer_channel_ids)")
-        params["customer_channel_ids"] = filters.customer_channel_ids
+    # if filters.customer_channel_ids:
+    #     where_fragments.append("c.outlet_channel_id = ANY(:customer_channel_ids)")
+    #     params["customer_channel_ids"] = filters.customer_channel_ids
 
-    if filters.customer_category_ids:
-        where_fragments.append("c.category_id = ANY(:customer_category_ids)")
-        params["customer_category_ids"] = filters.customer_category_ids
+    # if filters.customer_category_ids:
+    #     where_fragments.append("c.category_id = ANY(:customer_category_ids)")
+    #     params["customer_category_ids"] = filters.customer_category_ids
 
     joins = list(dict.fromkeys(joins))
     return joins, where_fragments, params
@@ -105,17 +105,17 @@ def purchase_build_query_parts(filters: DashboardRequest):
         where_fragments.append("hih.warehouse_id = ANY(:warehouse_ids)")
         params["warehouse_ids"] = filters.warehouse_ids
 
-    if filters.item_category_ids:
-        where_fragments.append("it.category_id = ANY(:item_category_ids)")
-        params["item_category_ids"] = filters.item_category_ids
+    # if filters.item_category_ids:
+    #     where_fragments.append("it.category_id = ANY(:item_category_ids)")
+    #     params["item_category_ids"] = filters.item_category_ids
 
-    if filters.customer_channel_ids:
-        where_fragments.append("c.outlet_channel_id = ANY(:customer_channel_ids)")
-        params["customer_channel_ids"] = filters.customer_channel_ids
+    # if filters.customer_channel_ids:
+    #     where_fragments.append("c.outlet_channel_id = ANY(:customer_channel_ids)")
+    #     params["customer_channel_ids"] = filters.customer_channel_ids
 
-    if filters.customer_category_ids:
-        where_fragments.append("c.category_id = ANY(:customer_category_ids)")
-        params["customer_category_ids"] = filters.customer_category_ids
+    # if filters.customer_category_ids:
+    #     where_fragments.append("c.category_id = ANY(:customer_category_ids)")
+    #     params["customer_category_ids"] = filters.customer_category_ids
 
     joins = list(dict.fromkeys(joins))
     return joins, where_fragments, params
@@ -154,17 +154,17 @@ def return_build_query_parts(filters: DashboardRequest):
         where_fragments.append("hrh.warehouse_id = ANY(:warehouse_ids)")
         params["warehouse_ids"] = filters.warehouse_ids
 
-    if filters.item_category_ids:
-        where_fragments.append("it.category_id = ANY(:item_category_ids)")
-        params["item_category_ids"] = filters.item_category_ids
+    # if filters.item_category_ids:
+    #     where_fragments.append("it.category_id = ANY(:item_category_ids)")
+    #     params["item_category_ids"] = filters.item_category_ids
 
-    if filters.customer_channel_ids:
-        where_fragments.append("c.outlet_channel_id = ANY(:customer_channel_ids)")
-        params["customer_channel_ids"] = filters.customer_channel_ids
+    # if filters.customer_channel_ids:
+    #     where_fragments.append("c.outlet_channel_id = ANY(:customer_channel_ids)")
+    #     params["customer_channel_ids"] = filters.customer_channel_ids
 
-    if filters.customer_category_ids:
-        where_fragments.append("c.category_id = ANY(:customer_category_ids)")
-        params["customer_category_ids"] = filters.customer_category_ids
+    # if filters.customer_category_ids:
+    #     where_fragments.append("c.category_id = ANY(:customer_category_ids)")
+    #     params["customer_category_ids"] = filters.customer_category_ids
 
     joins = list(dict.fromkeys(joins))
     return joins, where_fragments, params
