@@ -27,13 +27,15 @@ from app.visit_report.routes.visit_filter import router as visit_filter
 from app.visit_report.routes.visit_dashboard import router as visit_dashboard
 from app.visit_report.routes.visit_table import router as visit_table
 
-from app.dashboard.routes.dashboard_filter import router as dashboard_filter
-from app.dashboard.routes.dashboard_region_section import router as dashboard_region_section
-from app.dashboard.routes.dashboard_area_section import router as dashboard_area_section
-from app.dashboard.routes.dashboard_warehouse_section import router as dashboard_warehouse_section
-
-
 from app.promotion_report.routes.promotion_filter import router as promotion_filter
+
+# from app.dashboard.routes.dashboard_filter import router as dashboard_filter
+from app.dashboard.routes.sales_dashboard import router as sale_dashboard
+# from app.dashboard.routes.dashboard_area_section import router as dashboard_area_section
+# from app.dashboard.routes.dashboard_warehouse_section import router as dashboard_warehouse_section
+
+from app.customer_dashboard.routes.cust_dashboard import router as cust_dashboard
+
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -68,12 +70,14 @@ app.include_router(visit_filter, prefix="/api")
 app.include_router(visit_dashboard, prefix="/api")
 app.include_router(visit_table, prefix="/api")
 
-app.include_router(dashboard_filter, prefix="/api")
-app.include_router(dashboard_region_section, prefix="/api")
-app.include_router(dashboard_area_section, prefix="/api")
-app.include_router(dashboard_warehouse_section, prefix="/api")
+# app.include_router(dashboard_filter, prefix="/api")
+app.include_router(sale_dashboard, prefix="/api")
+# app.include_router(dashboard_area_section, prefix="/api")
+# app.include_router(dashboard_warehouse_section, prefix="/api")
 
 app.include_router(promotion_filter, prefix="/api")
+
+app.include_router(cust_dashboard, prefix="/api")
 
 
 

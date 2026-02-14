@@ -23,7 +23,6 @@ def validate_mandatory(filters:DashboardRequest):
         raise HTTPException(status_code=400, detail="from_date/to_date must be in YYYY-MM-DD format")
 
 def sales_build_query_parts(filters: DashboardRequest):
-    joins = []
     where_fragments = []
     params = {}
 
@@ -34,45 +33,9 @@ def sales_build_query_parts(filters: DashboardRequest):
     if filters.display_quantity and filters.display_quantity.lower() == "without_free_good":
         where_fragments.append("id.item_total <> 0")
 
-    if filters.company_ids:
-        where_fragments.append("ih.company_id = ANY(:company_ids)")
-        params["company_ids"] = filters.company_ids
-
-    need_wh_join = False
-    if filters.region_ids:
-        joins.append("JOIN tbl_warehouse w ON w.id = ih.warehouse_id")
-        where_fragments.append("w.region_id = ANY(:region_ids)")
-        params["region_ids"] = filters.region_ids
-        need_wh_join = True
-
-    if filters.area_ids:
-        if not need_wh_join:
-            joins.append("JOIN tbl_warehouse w ON w.id = ih.warehouse_id")
-            need_wh_join = True
-        where_fragments.append("w.area_id = ANY(:area_ids)")
-        params["area_ids"] = filters.area_ids
-
-    if filters.warehouse_ids:
-        where_fragments.append("ih.warehouse_id = ANY(:warehouse_ids)")
-        params["warehouse_ids"] = filters.warehouse_ids
-
-    # if filters.item_category_ids:
-    #     where_fragments.append("it.category_id = ANY(:item_category_ids)")
-    #     params["item_category_ids"] = filters.item_category_ids
-
-    # if filters.customer_channel_ids:
-    #     where_fragments.append("c.outlet_channel_id = ANY(:customer_channel_ids)")
-    #     params["customer_channel_ids"] = filters.customer_channel_ids
-
-    # if filters.customer_category_ids:
-    #     where_fragments.append("c.category_id = ANY(:customer_category_ids)")
-    #     params["customer_category_ids"] = filters.customer_category_ids
-
-    joins = list(dict.fromkeys(joins))
-    return joins, where_fragments, params
+    return where_fragments, params
 
 def purchase_build_query_parts(filters: DashboardRequest):
-    joins = []
     where_fragments = []
     params = {}
 
@@ -83,45 +46,9 @@ def purchase_build_query_parts(filters: DashboardRequest):
     if filters.display_quantity and filters.display_quantity.lower() == "without_free_good":
         where_fragments.append("hid.total <> 0")
 
-    if filters.company_ids:
-        where_fragments.append("hih.company_id = ANY(:company_ids)")
-        params["company_ids"] = filters.company_ids
-
-    need_wh_join = False
-    if filters.region_ids:
-        joins.append("JOIN tbl_warehouse w ON w.id = hih.warehouse_id")
-        where_fragments.append("w.region_id = ANY(:region_ids)")
-        params["region_ids"] = filters.region_ids
-        need_wh_join = True
-
-    if filters.area_ids:
-        if not need_wh_join:
-            joins.append("JOIN tbl_warehouse w ON w.id = hih.warehouse_id")
-            need_wh_join = True
-        where_fragments.append("w.area_id = ANY(:area_ids)")
-        params["area_ids"] = filters.area_ids
-
-    if filters.warehouse_ids:
-        where_fragments.append("hih.warehouse_id = ANY(:warehouse_ids)")
-        params["warehouse_ids"] = filters.warehouse_ids
-
-    # if filters.item_category_ids:
-    #     where_fragments.append("it.category_id = ANY(:item_category_ids)")
-    #     params["item_category_ids"] = filters.item_category_ids
-
-    # if filters.customer_channel_ids:
-    #     where_fragments.append("c.outlet_channel_id = ANY(:customer_channel_ids)")
-    #     params["customer_channel_ids"] = filters.customer_channel_ids
-
-    # if filters.customer_category_ids:
-    #     where_fragments.append("c.category_id = ANY(:customer_category_ids)")
-    #     params["customer_category_ids"] = filters.customer_category_ids
-
-    joins = list(dict.fromkeys(joins))
-    return joins, where_fragments, params
+    return where_fragments, params
 
 def return_build_query_parts(filters: DashboardRequest):
-    joins = []
     where_fragments = []
     params = {}
 
@@ -132,42 +59,7 @@ def return_build_query_parts(filters: DashboardRequest):
     if filters.display_quantity and filters.display_quantity.lower() == "without_free_good":
         where_fragments.append("hrd.total <> 0")
 
-    if filters.company_ids:
-        where_fragments.append("hrh.company_id = ANY(:company_ids)")
-        params["company_ids"] = filters.company_ids
-
-    need_wh_join = False
-    if filters.region_ids:
-        joins.append("JOIN tbl_warehouse w ON w.id = hrh.warehouse_id")
-        where_fragments.append("w.region_id = ANY(:region_ids)")
-        params["region_ids"] = filters.region_ids
-        need_wh_join = True
-
-    if filters.area_ids:
-        if not need_wh_join:
-            joins.append("JOIN tbl_warehouse w ON w.id = hrh.warehouse_id")
-            need_wh_join = True
-        where_fragments.append("w.area_id = ANY(:area_ids)")
-        params["area_ids"] = filters.area_ids
-
-    if filters.warehouse_ids:
-        where_fragments.append("hrh.warehouse_id = ANY(:warehouse_ids)")
-        params["warehouse_ids"] = filters.warehouse_ids
-
-    # if filters.item_category_ids:
-    #     where_fragments.append("it.category_id = ANY(:item_category_ids)")
-    #     params["item_category_ids"] = filters.item_category_ids
-
-    # if filters.customer_channel_ids:
-    #     where_fragments.append("c.outlet_channel_id = ANY(:customer_channel_ids)")
-    #     params["customer_channel_ids"] = filters.customer_channel_ids
-
-    # if filters.customer_category_ids:
-    #     where_fragments.append("c.category_id = ANY(:customer_category_ids)")
-    #     params["customer_category_ids"] = filters.customer_category_ids
-
-    joins = list(dict.fromkeys(joins))
-    return joins, where_fragments, params
+    return where_fragments, params
 
 def choose_granularity(from_date_str: str, to_date_str: str) -> tuple[str, str, str]:  
     d1 = datetime.fromisoformat(from_date_str).date()

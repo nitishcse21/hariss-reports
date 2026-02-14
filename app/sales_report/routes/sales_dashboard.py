@@ -71,8 +71,7 @@ def get_dashboard(filters: FilterSelection):
             FROM invoice_headers ih
             JOIN invoice_details id ON id.header_id = ih.id
             JOIN tbl_warehouse w ON w.id = ih.warehouse_id
-            JOIN tbl_areas a ON a.id = w.area_id
-            JOIN tbl_region r ON r.id = a.region_id
+            JOIN tbl_region r ON r.id = w.region_id
             {join_sql_base}
             WHERE {where_sql}
             GROUP BY r.region_name
@@ -122,7 +121,6 @@ def get_dashboard(filters: FilterSelection):
         ensure_warehouse_join(joins_ws)
         join_sql_ws = "\n".join(joins_ws)
 
-        # 5. Top 10 salesman table
         sql = f"""
             SELECT
                 s.osa_code || ' - ' || s.name AS salesman,
