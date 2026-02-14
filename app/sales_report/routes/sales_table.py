@@ -1,5 +1,5 @@
 from app.sales_report.schemas.sales_schema import FilterSelection
-from app.sales_report.utils.sales_common_helper import validate_mandatory, build_query_parts
+from app.sales_report.utils.sales_common_helper import validate_mandatory, build_query_parts, quantity_expr_sql
 from fastapi import APIRouter,Query,Request
 from sqlalchemy import text
 from app.database import engine
@@ -87,7 +87,8 @@ def get_table(filters: FilterSelection, request:Request, page: int = Query(1, ge
     joins = list(dict.fromkeys(joins))
     join_sql = "\n".join(joins)
 
-    value_col = "SUM(id.quantity) AS total_quantity" \
+    quantity = quantity_expr_sql()
+    value_col = f"{quantity} AS total_quantity" \
         if filters.search_type.lower() == "quantity" \
         else "SUM(id.item_total) AS total_amount"
 
@@ -119,7 +120,7 @@ def get_table(filters: FilterSelection, request:Request, page: int = Query(1, ge
         group_fields.append("ch.outlet_channel")
 
 
-    select_sql = ",\n        ".join(select_fields)
+    select_sql = ",\n".join(select_fields)
     group_sql = ", ".join(group_fields)
 
     # Count total rows
@@ -152,6 +153,11 @@ def get_table(filters: FilterSelection, request:Request, page: int = Query(1, ge
         JOIN invoice_details id ON id.header_id = ih.id
         JOIN items it ON it.id = id.item_id
         LEFT JOIN item_categories cat ON cat.id = it.category_id
+        LEFT JOIN (
+                    SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+                    FROM item_uoms
+                    GROUP BY item_id
+        ) iu ON iu.item_id = id.item_id
         {join_sql}
         WHERE {where_sql}
         GROUP BY {group_sql}
