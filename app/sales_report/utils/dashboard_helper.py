@@ -1,4 +1,5 @@
 from datetime import datetime
+from sqlalchemy import text
 
 
 def choose_granularity(from_date_str: str, to_date_str: str) -> tuple[str, str, str]:  
@@ -35,4 +36,121 @@ def ensure_warehouse_join(joins: list[str]):
     if wh_join not in joins:
         joins.append(wh_join)
 
+
+
+
+def get_top_tables(
+    conn,
+    *,
+    value_expr: str,
+    where_sql: str,
+    params: dict,
+    join_sql_base: str,
+    join_sql_ws: str,
+    limit: int = 10,
+):
+    out = {}
+
+    # Top Salesmen
+    sql = f"""
+        SELECT
+            s.osa_code || ' - ' || s.name AS salesman,
+            w.warehouse_name,
+            {value_expr} AS value
+        FROM invoice_headers ih
+        JOIN invoice_details id ON id.header_id = ih.id
+        JOIN salesman s ON s.id = ih.salesman_id
+        LEFT JOIN (
+            SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+            FROM item_uoms
+            GROUP BY item_id
+        ) iu ON iu.item_id = id.item_id
+        {join_sql_ws}
+        WHERE {where_sql}
+        GROUP BY s.osa_code, s.name, w.warehouse_name
+        ORDER BY value DESC
+        LIMIT {limit}
+    """
+    out["top_salesmen"] = [
+        dict(r._mapping) for r in conn.execute(text(sql), params).fetchall()
+    ]
+
+    #  Top Warehouses
+    sql = f"""
+        SELECT
+            w.warehouse_code || ' - ' || w.warehouse_name AS warehouse_name,
+            w.address AS location,
+            {value_expr} AS value
+        FROM invoice_headers ih
+        JOIN invoice_details id ON id.header_id = ih.id
+        LEFT JOIN (
+            SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+            FROM item_uoms
+            GROUP BY item_id
+        ) iu ON iu.item_id = id.item_id
+        {join_sql_ws}
+        WHERE {where_sql}
+        GROUP BY w.warehouse_code, w.warehouse_name, w.address
+        ORDER BY value DESC
+        LIMIT {limit}
+    """
+    out["top_warehouses"] = [
+        dict(r._mapping) for r in conn.execute(text(sql), params).fetchall()
+    ]
+
+    #  Top Items
+    sql = f"""
+        SELECT
+            it.name AS item_name,
+            {value_expr} AS value
+        FROM invoice_headers ih
+        JOIN invoice_details id ON id.header_id = ih.id
+        JOIN items it ON it.id = id.item_id
+        LEFT JOIN (
+            SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+            FROM item_uoms
+            GROUP BY item_id
+        ) iu ON iu.item_id = id.item_id
+        {join_sql_base}
+        WHERE {where_sql}
+        GROUP BY it.name
+        ORDER BY value DESC
+        LIMIT {limit}
+    """
+    out["top_items"] = [
+        dict(r._mapping) for r in conn.execute(text(sql), params).fetchall()
+    ]
+
+    # Top Customers
+    sql = f"""
+        SELECT
+            cst.id AS customer_id,
+            cst.osa_code || ' - ' || cst.name AS customer_name,
+            cst.contact_no AS contact,
+            w.warehouse_name,
+            {value_expr} AS value
+        FROM invoice_headers ih
+        JOIN invoice_details id ON id.header_id = ih.id
+        JOIN agent_customers cst ON cst.id = ih.customer_id
+        LEFT JOIN (
+            SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+            FROM item_uoms
+            GROUP BY item_id
+        ) iu ON iu.item_id = id.item_id
+        {join_sql_ws}
+        WHERE {where_sql}
+        GROUP BY
+            cst.id,
+            cst.osa_code,
+            cst.name,
+            cst.contact_no,
+            w.warehouse_name
+        ORDER BY value DESC
+        LIMIT {limit}
+    """
+    out["top_customers"] = [
+        dict(r._mapping) for r in conn.execute(text(sql), params).fetchall()
+    ]
+
+    return out
 

@@ -1,9 +1,9 @@
 from app.sales_report.schemas.sales_schema import FilterSelection
 from fastapi import APIRouter
 from sqlalchemy import text
-from app.sales_report.utils.sales_common_helper import build_query_parts, validate_mandatory
+from app.sales_report.utils.sales_common_helper import build_query_parts, validate_mandatory, quantity_expr_sql
 from app.database import engine
-from app.sales_report.utils.dashboard_helper import ensure_warehouse_join, choose_granularity
+from app.sales_report.utils.dashboard_helper import ensure_warehouse_join, choose_granularity, get_top_tables
 
 router = APIRouter()
 
@@ -33,9 +33,9 @@ def get_dashboard(filters: FilterSelection):
         "charts": {},
         "tables": {},
     }
-
+    qauntity = quantity_expr_sql()
     value_expr = (
-        "SUM(id.quantity)"
+        qauntity
         if filters.search_type.lower() == "quantity"
         else "SUM(id.item_total)"
     )
@@ -54,6 +54,11 @@ def get_dashboard(filters: FilterSelection):
             FROM invoice_headers ih
             JOIN invoice_details id ON id.header_id = ih.id
             JOIN tbl_company c ON c.id = ih.company_id
+            LEFT JOIN (
+            SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+            FROM item_uoms
+            GROUP BY item_id
+            ) iu ON iu.item_id = id.item_id
             {join_sql_base}
             WHERE {where_sql}
             GROUP BY c.company_name
@@ -72,6 +77,11 @@ def get_dashboard(filters: FilterSelection):
             JOIN invoice_details id ON id.header_id = ih.id
             JOIN tbl_warehouse w ON w.id = ih.warehouse_id
             JOIN tbl_region r ON r.id = w.region_id
+            LEFT JOIN (
+            SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+            FROM item_uoms
+            GROUP BY item_id
+            ) iu ON iu.item_id = id.item_id
             {join_sql_base}
             WHERE {where_sql}
             GROUP BY r.region_name
@@ -90,6 +100,11 @@ def get_dashboard(filters: FilterSelection):
             JOIN invoice_details id ON id.header_id = ih.id
             JOIN tbl_warehouse w ON w.id = ih.warehouse_id
             JOIN tbl_areas a ON a.id = w.area_id
+            LEFT JOIN (
+            SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+            FROM item_uoms
+            GROUP BY item_id
+            ) iu ON iu.item_id = id.item_id
             {join_sql_base}
             WHERE {where_sql}
             GROUP BY a.area_name
@@ -108,6 +123,11 @@ def get_dashboard(filters: FilterSelection):
             FROM invoice_headers ih
             JOIN invoice_details id ON id.header_id = ih.id
             JOIN tbl_company c ON c.id = ih.company_id
+            LEFT JOIN (
+            SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+            FROM item_uoms
+            GROUP BY item_id
+            ) iu ON iu.item_id = id.item_id
             {join_sql_base}
             WHERE {where_sql}
             GROUP BY period, c.company_name,{order_by_sql}
@@ -121,80 +141,19 @@ def get_dashboard(filters: FilterSelection):
         ensure_warehouse_join(joins_ws)
         join_sql_ws = "\n".join(joins_ws)
 
-        sql = f"""
-            SELECT
-                s.osa_code || ' - ' || s.name AS salesman,
-                w.warehouse_name,
-                {value_expr} as value
-            FROM invoice_headers ih
-            JOIN invoice_details id ON id.header_id = ih.id
-            JOIN salesman s ON s.id = ih.salesman_id
-            {join_sql_ws}
-            WHERE {where_sql}
-            GROUP BY s.osa_code, s.name, w.warehouse_name
-            ORDER BY value DESC
-            LIMIT 10
-        """
         with engine.connect() as conn:
-            rows = conn.execute(text(sql), params).fetchall()
-        out["tables"]["top_salesmen"] = [dict(r._mapping) for r in rows]
 
-        # 6. Top 10 warehouse table
-        sql = f"""
-            SELECT
-                w.warehouse_code || ' - ' ||w.warehouse_name AS warehouse_name,
-                w.address AS location,
-                {value_expr} AS value
-            FROM invoice_headers ih
-            JOIN invoice_details id ON id.header_id = ih.id
-            {join_sql_ws}
-            WHERE {where_sql}
-            GROUP BY  w.warehouse_code, w.warehouse_name, w.address
-            ORDER BY value DESC
-            LIMIT 10
-        """
-        with engine.connect() as conn:
-            rows = conn.execute(text(sql), params).fetchall()
-        out["tables"]["top_warehouses"] = [dict(r._mapping) for r in rows]
+            top_tables = get_top_tables(
+                conn,
+                value_expr=value_expr,
+                where_sql=where_sql,
+                params=params,
+                join_sql_base=join_sql_base,
+                join_sql_ws=join_sql_ws,
+                limit=10,
+            )
 
-        # 7. Top 10 item table
-        sql = f"""
-            SELECT
-                it.name AS item_name,
-                {value_expr} as value
-            FROM invoice_headers ih
-            JOIN invoice_details id ON id.header_id = ih.id
-            JOIN items it ON it.id = id.item_id
-            {join_sql_base}
-            WHERE {where_sql}
-            GROUP BY it.name
-            ORDER BY value DESC
-            LIMIT 10
-        """
-        with engine.connect() as conn:
-            rows = conn.execute(text(sql), params).fetchall()
-        out["tables"]["top_items"] = [dict(r._mapping) for r in rows]
-
-        # 8. Top 10 customer table
-        sql = f"""
-            SELECT
-                cst.id AS customer_id,
-                cst.osa_code || ' - ' || cst.name AS customer_name,
-                cst.contact_no AS contact,
-                w.warehouse_name,
-                {value_expr} AS value
-            FROM invoice_headers ih
-            JOIN invoice_details id ON id.header_id = ih.id
-            JOIN agent_customers cst ON cst.id = ih.customer_id
-            {join_sql_ws}
-            WHERE {where_sql}
-            GROUP BY cst.id, cst.name, cst.contact_no, w.warehouse_name, cst.osa_code
-            ORDER BY value DESC
-            LIMIT 10
-        """
-        with engine.connect() as conn:
-            rows = conn.execute(text(sql), params).fetchall()
-        out["tables"]["top_customers"] = [dict(r._mapping) for r in rows]
+        out["tables"].update(top_tables)
 
     # ------------------------------------------------------------------
     # REGION LABEL DASHBOARD
@@ -215,9 +174,13 @@ def get_dashboard(filters: FilterSelection):
                     0 AS total_return
                 FROM invoice_headers ih
                 JOIN invoice_details id ON id.header_id = ih.id
+                LEFT JOIN (
+                SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+                FROM item_uoms
+                GROUP BY item_id
+                ) iu ON iu.item_id = id.item_id
                 {join_sql_base}
-                JOIN tbl_areas a ON a.id = w.area_id
-                JOIN tbl_region r ON r.id = a.region_id
+                JOIN tbl_region r ON r.id = w.region_id
                 WHERE {where_sql}
                 GROUP BY r.region_name
                 ORDER BY value DESC
@@ -239,9 +202,13 @@ def get_dashboard(filters: FilterSelection):
                     FROM invoice_headers ih
                     JOIN invoice_details id ON id.header_id = ih.id
                     JOIN items it ON it.id = id.item_id
+                    LEFT JOIN (
+                    SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+                    FROM item_uoms
+                    GROUP BY item_id
+                    ) iu ON iu.item_id = id.item_id
                     {join_sql_base}
-                    JOIN tbl_areas a ON a.id = w.area_id
-                    JOIN tbl_region r ON r.id = a.region_id
+                    JOIN tbl_region r ON r.id = w.region_id
                     WHERE {where_sql}
                     GROUP BY r.region_name, it.name
                 )
@@ -264,8 +231,7 @@ def get_dashboard(filters: FilterSelection):
                         cst.id AS customer_id
                     FROM agent_customers cst
                     JOIN tbl_warehouse w ON w.id = cst.warehouse
-                    JOIN tbl_areas a ON a.id = w.area_id
-                    JOIN tbl_region r ON r.id = a.region_id
+                    JOIN tbl_region r ON r.id = w.region_id
                     WHERE
                         cst.status = 1
                         AND r.id = ANY(:region_ids)
@@ -279,8 +245,7 @@ def get_dashboard(filters: FilterSelection):
                     JOIN invoice_details id ON id.header_id = ih.id
                     JOIN agent_customers cst ON cst.id = ih.customer_id
                     JOIN tbl_warehouse w ON w.id = ih.warehouse_id
-                    JOIN tbl_areas a ON a.id = w.area_id
-                    JOIN tbl_region r ON r.id = a.region_id
+                    JOIN tbl_region r ON r.id = w.region_id
                     WHERE
                         cst.status = 1
                         AND id.item_total > 0
@@ -303,7 +268,6 @@ def get_dashboard(filters: FilterSelection):
                     AND t.region_id = v.region_id
                 GROUP BY t.region_id, t.region_name
                 ORDER BY t.region_name;
-
             """
 
             rows = conn.execute(text(sql), params).fetchall()
@@ -319,6 +283,11 @@ def get_dashboard(filters: FilterSelection):
                     {value_expr} AS value
                 FROM invoice_headers ih
                 JOIN invoice_details id ON id.header_id = ih.id
+                LEFT JOIN (
+                SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+                FROM item_uoms
+                GROUP BY item_id
+                ) iu ON iu.item_id = id.item_id
                 {join_sql_base}
                 JOIN tbl_region r ON r.id = w.region_id
                 WHERE {where_sql}
@@ -332,77 +301,19 @@ def get_dashboard(filters: FilterSelection):
             ensure_warehouse_join(joins_ws)
             join_sql_ws = "\n".join(joins_ws)
 
-            # 5. Top 10 salesman
-            sql = f"""
-                SELECT
-                    s.osa_code || ' - ' || s.name AS salesman,
-                    w.warehouse_name AS warehouse_name,
-                    {value_expr} AS value
-                FROM invoice_headers ih
-                JOIN invoice_details id ON id.header_id = ih.id
-                JOIN salesman s ON s.id = ih.salesman_id
-                {join_sql_ws}
-                WHERE {where_sql}
-                GROUP BY s.osa_code, s.name, w.warehouse_name
-                ORDER BY value DESC
-                LIMIT 10
-            """
-            rows = conn.execute(text(sql), params).fetchall()
-            out["tables"]["top_salesmen"] = [dict(r._mapping) for r in rows]
+        with engine.connect() as conn:
 
-            # 6. Top 10 warehouse
-            sql = f"""
-                SELECT
-                    w.warehouse_code || ' - ' || w.warehouse_name AS warehouse_name,
-                    w.address AS location,
-                    {value_expr} AS value
-                FROM invoice_headers ih
-                JOIN invoice_details id ON id.header_id = ih.id
-                {join_sql_ws}
-                WHERE {where_sql}
-                GROUP BY w.warehouse_code, w.warehouse_name, w.address
-                ORDER BY value DESC
-                LIMIT 10
-            """
-            rows = conn.execute(text(sql), params).fetchall()
-            out["tables"]["top_warehouses"] = [dict(r._mapping) for r in rows]
+            top_tables = get_top_tables(
+                conn,
+                value_expr=value_expr,
+                where_sql=where_sql,
+                params=params,
+                join_sql_base=join_sql_base,
+                join_sql_ws=join_sql_ws,
+                limit=10,
+            )
 
-            # 7. Top 10 item
-            sql = f"""
-                SELECT
-                    it.name AS item_name,
-                    {value_expr} AS value
-                FROM invoice_headers ih
-                JOIN invoice_details id ON id.header_id = ih.id
-                JOIN items it ON it.id = id.item_id
-                {join_sql_base}
-                WHERE {where_sql}
-                GROUP BY it.name
-                ORDER BY value DESC
-                LIMIT 10
-            """
-            rows = conn.execute(text(sql), params).fetchall()
-            out["tables"]["top_items"] = [dict(r._mapping) for r in rows]
-
-            # 8. Top 10 customer
-            sql = f"""
-                SELECT
-                    cst.id AS customer_id,
-                    cst.osa_code || ' - ' || cst.name AS customer_name,
-                    cst.contact_no AS contact,
-                    w.warehouse_name AS warehouse_name,
-                    {value_expr} AS value
-                FROM invoice_headers ih
-                JOIN invoice_details id ON id.header_id = ih.id
-                JOIN agent_customers cst ON cst.id = ih.customer_id
-                {join_sql_ws}
-                WHERE {where_sql}
-                GROUP BY cst.id, cst.name, cst.contact_no, w.warehouse_name, cst.osa_code
-                ORDER BY value DESC
-                LIMIT 10
-            """
-            rows = conn.execute(text(sql), params).fetchall()
-            out["tables"]["top_customers"] = [dict(r._mapping) for r in rows]
+        out["tables"].update(top_tables)
 
     # ------------------------------------------------------------------
     # AREA LABEL DASHBOARD (mirrors region logic, but grouped by area)
@@ -415,7 +326,7 @@ def get_dashboard(filters: FilterSelection):
 
         with engine.connect() as conn:
 
-            # 1️⃣ Area performance table: area_name, total sales, total return (0 placeholder)
+            #  Area performance table
             sql = f"""
                 SELECT
                     a.area_name,
@@ -423,6 +334,11 @@ def get_dashboard(filters: FilterSelection):
                     0 AS total_return
                 FROM invoice_headers ih
                 JOIN invoice_details id ON id.header_id = ih.id
+                LEFT JOIN (
+                SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+                FROM item_uoms
+                GROUP BY item_id
+                ) iu ON iu.item_id = id.item_id
                 {join_sql_base}
                 JOIN tbl_areas a ON a.id = w.area_id
                 WHERE {where_sql}
@@ -432,7 +348,7 @@ def get_dashboard(filters: FilterSelection):
             rows = conn.execute(text(sql), params).fetchall()
             out["tables"]["area_performance"] = [dict(r._mapping) for r in rows]
 
-            # 2️⃣ Sales by contribution pie (count buying customers by area)
+            # area sales by contribution 
             sql = f"""
                 WITH area_item_sales AS (
                     SELECT
@@ -446,6 +362,11 @@ def get_dashboard(filters: FilterSelection):
                     FROM invoice_headers ih
                     JOIN invoice_details id ON id.header_id = ih.id
                     JOIN items it ON it.id = id.item_id
+                    LEFT JOIN (
+                    SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+                    FROM item_uoms
+                    GROUP BY item_id
+                    ) iu ON iu.item_id = id.item_id
                     {join_sql_base}
                     JOIN tbl_areas a ON a.id = w.area_id
                     WHERE {where_sql}
@@ -460,7 +381,7 @@ def get_dashboard(filters: FilterSelection):
             out["charts"]["area_contribution_top_item"] = [
                 dict(r._mapping) for r in rows
             ]
-            # 3️⃣ Area wise visited customer performance line chart
+            #  Area wise visited customer performance
             sql = f"""
                 WITH total_customers AS (
                     SELECT DISTINCT
@@ -518,7 +439,7 @@ def get_dashboard(filters: FilterSelection):
                 dict(r._mapping) for r in rows
             ]
 
-            # 4️⃣ Area wise sales trend line chart
+            #  Area wise sales trend 
             sql = f"""
                 SELECT
                     {period_label_sql} AS period,
@@ -526,6 +447,11 @@ def get_dashboard(filters: FilterSelection):
                     {value_expr} AS value
                 FROM invoice_headers ih
                 JOIN invoice_details id ON id.header_id = ih.id
+                LEFT JOIN (
+                    SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+                    FROM item_uoms
+                    GROUP BY item_id
+                ) iu ON iu.item_id = id.item_id
                 {join_sql_base}
                 JOIN tbl_areas a ON a.id = w.area_id
                 WHERE {where_sql}
@@ -539,81 +465,22 @@ def get_dashboard(filters: FilterSelection):
             ensure_warehouse_join(joins_ws)
             join_sql_ws = "\n".join(joins_ws)
 
-            # 5️⃣ Top 10 salesman table
-            sql = f"""
-                SELECT
-                    s.osa_code || ' - ' || s.name AS salesman,
-                    w.warehouse_name AS warehouse_name,
-                    {value_expr} AS value
-                FROM invoice_headers ih
-                JOIN invoice_details id ON id.header_id = ih.id
-                JOIN salesman s ON s.id = ih.salesman_id
-                {join_sql_ws}
-                WHERE {where_sql}
-                GROUP BY s.osa_code, s.name, w.warehouse_name
-                ORDER BY value DESC
-                LIMIT 10
-            """
-            rows = conn.execute(text(sql), params).fetchall()
-            out["tables"]["top_salesmen"] = [dict(r._mapping) for r in rows]
+        with engine.connect() as conn:
 
-            # 6️⃣ Top 10 warehouse table
-            sql = f"""
-                SELECT
-                    w.warehouse_code || ' - ' || w.warehouse_name AS warehouse_name,
-                    w.address AS location,
-                    {value_expr} AS value
-                FROM invoice_headers ih
-                JOIN invoice_details id ON id.header_id = ih.id
-                {join_sql_ws}
-                WHERE {where_sql}
-                GROUP BY w.warehouse_code, w.warehouse_name, w.address
-                ORDER BY value DESC
-                LIMIT 10
-            """
-            rows = conn.execute(text(sql), params).fetchall()
-            out["tables"]["top_warehouses"] = [dict(r._mapping) for r in rows]
+            top_tables = get_top_tables(
+                conn,
+                value_expr=value_expr,
+                where_sql=where_sql,
+                params=params,
+                join_sql_base=join_sql_base,
+                join_sql_ws=join_sql_ws,
+                limit=10,
+            )
 
-            # 7️⃣ Top 10 item table
-            sql = f"""
-                SELECT
-                    it.name AS item_name,
-                    {value_expr} AS value
-                FROM invoice_headers ih
-                JOIN invoice_details id ON id.header_id = ih.id
-                JOIN items it ON it.id = id.item_id
-                {join_sql_base}
-                WHERE {where_sql}
-                GROUP BY it.name
-                ORDER BY value DESC
-                LIMIT 10
-            """
-            rows = conn.execute(text(sql), params).fetchall()
-            out["tables"]["top_items"] = [dict(r._mapping) for r in rows]
+        out["tables"].update(top_tables)
 
-            # 8️⃣ Top 10 customer table
-            sql = f"""
-                SELECT
-                    cst.id AS customer_id,
-                   cst.osa_code || ' - ' || cst.name AS customer_name,
-                    cst.contact_no AS contact,
-                    w.warehouse_name AS warehouse_name,
-                    {value_expr} AS value
-                FROM invoice_headers ih
-                JOIN invoice_details id ON id.header_id = ih.id
-                JOIN agent_customers cst ON cst.id = ih.customer_id
-                {join_sql_ws}
-                WHERE {where_sql}
-                GROUP BY cst.id, cst.name, cst.contact_no, w.warehouse_name, cst.osa_code
-                ORDER BY value DESC
-                LIMIT 10
-            """
-            rows = conn.execute(text(sql), params).fetchall()
-            out["tables"]["top_customers"] = [dict(r._mapping) for r in rows]
-
-    # -----------------------------
+   
     # Warehouse level dashboard
-    # -----------------------------
     if level == "warehouse":
 
         selected_warehouse_count = len(filters.warehouse_ids or [])
@@ -630,6 +497,11 @@ def get_dashboard(filters: FilterSelection):
                 {value_expr} AS value
             FROM invoice_headers ih
             JOIN invoice_details id ON id.header_id = ih.id
+            LEFT JOIN (
+                    SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+                    FROM item_uoms
+                    GROUP BY item_id
+            ) iu ON iu.item_id = id.item_id
             {join_sql_wh}
             WHERE {where_sql}
             GROUP BY w.warehouse_code, w.warehouse_name, w.address
@@ -639,7 +511,7 @@ def get_dashboard(filters: FilterSelection):
             rows = conn.execute(text(sql), params).fetchall()
         warehouse_data = [dict(r._mapping) for r in rows]
 
-        # 1) REGION-WISE SALES CONTRIBUTION (for the warehouses in context)
+        # 1) REGION-WISE SALES CONTRIBUTION 
 
         sql = f"""
             WITH sales AS (
@@ -648,6 +520,11 @@ def get_dashboard(filters: FilterSelection):
                     {value_expr} AS value
                 FROM invoice_headers ih
                 JOIN invoice_details id ON id.header_id = ih.id
+                LEFT JOIN (
+                    SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+                    FROM item_uoms
+                    GROUP BY item_id
+                ) iu ON iu.item_id = id.item_id
                 {join_sql_wh}
                 JOIN tbl_areas a ON a.id = w.area_id
                 JOIN tbl_region rg ON rg.id = a.region_id
@@ -664,8 +541,7 @@ def get_dashboard(filters: FilterSelection):
             rows = conn.execute(text(sql), params).fetchall()
         out["charts"]["region_contribution"] = [dict(r._mapping) for r in rows]
 
-        # 2) AREA-WISE SALES CONTRIBUTION (for the warehouses in context)
-
+        # 2) AREA-WISE SALES CONTRIBUTION
         sql = f"""
             WITH sales AS (
                 SELECT
@@ -673,6 +549,11 @@ def get_dashboard(filters: FilterSelection):
                     {value_expr} AS value
                 FROM invoice_headers ih
                 JOIN invoice_details id ON id.header_id = ih.id
+                LEFT JOIN (
+                    SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+                    FROM item_uoms
+                    GROUP BY item_id
+                ) iu ON iu.item_id = id.item_id
                 {join_sql_wh}
                 JOIN tbl_areas a ON a.id = w.area_id
                 WHERE {where_sql}
@@ -699,7 +580,7 @@ def get_dashboard(filters: FilterSelection):
             out["charts"]["warehouse_sales"] = []
             out["tables"]["warehouse_sales"] = warehouse_data
 
-        # 4) WAREHOUSE TREND (periodal sales per warehouse)
+        # 4) WAREHOUSE TREND 
 
         sql = f"""
             SELECT
@@ -708,6 +589,11 @@ def get_dashboard(filters: FilterSelection):
                 {value_expr} AS value
             FROM invoice_headers ih
             JOIN invoice_details id ON id.header_id = ih.id
+            LEFT JOIN (
+                    SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+                    FROM item_uoms
+                    GROUP BY item_id
+            ) iu ON iu.item_id = id.item_id
             {join_sql_wh}
             WHERE {where_sql}
             GROUP BY period,w.warehouse_code, w.warehouse_name,{order_by_sql}
@@ -727,6 +613,11 @@ def get_dashboard(filters: FilterSelection):
                     FROM invoice_headers ih
                     JOIN invoice_details id ON id.header_id = ih.id
                     JOIN items it ON it.id = id.item_id
+                    LEFT JOIN (
+                    SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+                    FROM item_uoms
+                    GROUP BY item_id
+                    ) iu ON iu.item_id = id.item_id
                     {join_sql_wh}
                     WHERE {where_sql}
                     GROUP BY it.name
@@ -748,6 +639,11 @@ def get_dashboard(filters: FilterSelection):
             FROM invoice_headers ih
             JOIN invoice_details id ON id.header_id = ih.id
             JOIN agent_customers cst ON cst.id = ih.customer_id
+            LEFT JOIN (
+                    SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+                    FROM item_uoms
+                    GROUP BY item_id
+            ) iu ON iu.item_id = id.item_id
             {join_sql_wh}
             WHERE {where_sql}
             GROUP BY cst.id, cst.name, cst.contact_no, w.warehouse_code, w.warehouse_name, cst.osa_code
@@ -774,6 +670,11 @@ def get_dashboard(filters: FilterSelection):
                     FROM invoice_headers ih
                     JOIN invoice_details id ON id.header_id = ih.id
                     JOIN salesman s ON s.id = ih.salesman_id
+                    LEFT JOIN (
+                    SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+                    FROM item_uoms
+                    GROUP BY item_id
+                    ) iu ON iu.item_id = id.item_id
                     {join_sql_wh}
                     WHERE {where_sql}
                     GROUP BY s.osa_code, s.name, w.warehouse_code, w.warehouse_name
@@ -791,6 +692,11 @@ def get_dashboard(filters: FilterSelection):
                         {value_expr} AS value
                     FROM invoice_headers ih
                     JOIN invoice_details id ON id.header_id = ih.id
+                    LEFT JOIN (
+                    SELECT item_id, MAX(NULLIF(upc::numeric, 0)) AS upc
+                    FROM item_uoms
+                    GROUP BY item_id
+                    ) iu ON iu.item_id = id.item_id
                     {join_sql_wh}
                     WHERE {where_sql}
                     GROUP BY w.warehouse_code, w.warehouse_name, w.address

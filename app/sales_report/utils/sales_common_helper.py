@@ -5,6 +5,7 @@ from typing import Optional, List
 
 
 
+
 def parse_csv_ids(s: Optional[str]) -> Optional[List[int]]:
     if not s:
         return None
@@ -96,4 +97,20 @@ def build_query_parts(filters: FilterSelection):
     return joins, where_fragments, params
 
 
+def quantity_expr_sql():
+    return """
+    ROUND(
+        CAST(
+            SUM(
+                CASE
+                    WHEN id.uom IN (1,3)
+                         AND NULLIF(iu.upc::numeric, 0) IS NOT NULL
+                    THEN id.quantity / iu.upc::numeric
+                    ELSE id.quantity
+                END
+            ) AS numeric
+        ),
+        3
+    )
+    """
 
