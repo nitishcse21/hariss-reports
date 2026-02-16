@@ -4,7 +4,7 @@ from typing import Optional,List
 class DashboardRequest(BaseModel):
     from_date: str
     to_date: str
-    display_quantity: Optional[str] = None 
+    display_quantity: Optional[str] = "with_free_good" 
 
     # company_ids: Optional[List[int]] = None
     # region_ids: Optional[List[int]] = None
