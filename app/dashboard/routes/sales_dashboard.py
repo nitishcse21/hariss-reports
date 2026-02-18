@@ -217,17 +217,17 @@ def sales_dash_area_sale(filters: DashboardRequest):
         out["charts"]["area_performance"] = [dict(r._mapping) for r in rows]
 
         # Area wise sales trend
-        # query = f"""
-        #         SELECT
-        #         {period_label_sql} AS period_label,
-        #         a.area_code || '-' || a.area_name AS area_name,
-        #         {quantity} AS value
-        #         {sale_base_sql}
-        #         GROUP BY period_label, a.area_name, a.area_code, {order_by_sql}
-        #         ORDER BY {order_by_sql}
-        #         """
-        # rows = conn.execute(text(query), params).fetchall()
-        # out["trend_line"] = [dict(r._mapping) for r in rows]
+        query = f"""
+                SELECT
+                {period_label_sql} AS period_label,
+                a.area_code || '-' || a.area_name AS area_name,
+                {quantity} AS value
+                {sale_base_sql}
+                GROUP BY period_label, a.area_name, a.area_code, {order_by_sql}
+                ORDER BY {order_by_sql}
+                """
+        rows = conn.execute(text(query), params).fetchall()
+        out["trend_line"] = [dict(r._mapping) for r in rows]
 
     return out
 
@@ -270,17 +270,17 @@ def sales_dash_area_purchase(filters: DashboardRequest):
         out["charts"]["purchase_area_performance"] = [dict(r._mapping) for r in rows]
 
         # Area wise purchase trend
-        # query = f"""
-        #                 SELECT
-        #                 {p_period_sql} AS period_label,
-        #                 a.area_code || '-' || a.area_name AS area_name,
-        #                 {purchase_quantity} AS value
-        #                 {purchase_base_sql}
-        #                 GROUP BY period_label,a.area_name,a.area_code,{p_order_sql}
-        #                 ORDER BY {p_order_sql}  
-        #                 """
-        # rows = conn.execute(text(query), p_params).fetchall()
-        # out["trend_line"] = [dict(r._mapping) for r in rows]
+        query = f"""
+                        SELECT
+                        {p_period_sql} AS period_label,
+                        a.area_code || '-' || a.area_name AS area_name,
+                        {purchase_quantity} AS value
+                        {purchase_base_sql}
+                        GROUP BY period_label,a.area_name,a.area_code,{p_order_sql}
+                        ORDER BY {p_order_sql}  
+                        """
+        rows = conn.execute(text(query), p_params).fetchall()
+        out["trend_line"] = [dict(r._mapping) for r in rows]
 
     return out
 
@@ -323,17 +323,17 @@ def sales_dash_area_return(filters: DashboardRequest):
         out["charts"]["return_area_performance"] = [dict(r._mapping) for r in rows]
 
         # Area wise return trend
-        # query = f"""
-        #                 SELECT
-        #                 {r_period_sql} AS period_label,
-        #                 a.area_code || '-' || a.area_name AS area_name,
-        #                 {return_quantity} AS value
-        #                 {return_base_sql}
-        #                 GROUP BY period_label,a.area_name,a.area_code,{r_order_sql}
-        #                 ORDER BY {r_order_sql}
-        #                 """
-        # rows = conn.execute(text(query), r_params).fetchall()
-        # out["trend_line"]= [dict(r._mapping) for r in rows]
+        query = f"""
+                        SELECT
+                        {r_period_sql} AS period_label,
+                        a.area_code || '-' || a.area_name AS area_name,
+                        {return_quantity} AS value
+                        {return_base_sql}
+                        GROUP BY period_label,a.area_name,a.area_code,{r_order_sql}
+                        ORDER BY {r_order_sql}
+                        """
+        rows = conn.execute(text(query), r_params).fetchall()
+        out["trend_line"]= [dict(r._mapping) for r in rows]
 
     return out
 
@@ -379,17 +379,17 @@ def sales_dash_warehouse_sale(filters:DashboardRequest):
                 out["charts"]["sales_warehouse_performance"] = [dict(r._mapping) for r in rows]
 
                 # Warehouse wise sales trend
-                # query = f"""
-                #         SELECT
-                #         {period_label_sql} AS period,
-                #         w.warehouse_code || '-' || w.warehouse_name AS warehouse_name,
-                #         {quantity} AS value
-                #         {sale_base_sql}
-                #         GROUP BY period, w.warehouse_name, w.warehouse_code,{order_by_sql}
-                #         ORDER BY {order_by_sql}
-                # """
-                # rows = conn.execute(text(query), params).fetchall()
-                # out["trend_line"] = [dict(r._mapping) for r in rows]
+                query = f"""
+                        SELECT
+                        {period_label_sql} AS period,
+                        w.warehouse_code || '-' || w.warehouse_name AS warehouse_name,
+                        {quantity} AS value
+                        {sale_base_sql}
+                        GROUP BY period, w.warehouse_name, w.warehouse_code,{order_by_sql}
+                        ORDER BY {order_by_sql}
+                """
+                rows = conn.execute(text(query), params).fetchall()
+                out["trend_line"] = [dict(r._mapping) for r in rows]
 
         return out
 
@@ -430,17 +430,17 @@ def sales_dash_warehouse_purchase(filters:DashboardRequest):
                 out["charts"]["purchase_warehouse_performance"] = [dict(r._mapping) for r in rows]
                 
                 # Warehouse wise purchase trend
-                # query = f"""
-                #         SELECT
-                #         {p_period_sql} AS period,
-                #         w.warehouse_code || '-' || w.warehouse_name AS warehouse_name,
-                #         {purchase_quantity} AS value
-                #         {purchase_base_sql}
-                #         GROUP BY period, w.warehouse_name, w.warehouse_code,{p_order_sql}
-                #         ORDER BY {p_order_sql}
-                # """
-                # rows = conn.execute(text(query), p_params).fetchall()
-                # out["trend_line"] = [dict(r._mapping) for r in rows]
+                query = f"""
+                        SELECT
+                        {p_period_sql} AS period,
+                        w.warehouse_code || '-' || w.warehouse_name AS warehouse_name,
+                        {purchase_quantity} AS value
+                        {purchase_base_sql}
+                        GROUP BY period, w.warehouse_name, w.warehouse_code,{p_order_sql}
+                        ORDER BY {p_order_sql}
+                """
+                rows = conn.execute(text(query), p_params).fetchall()
+                out["trend_line"] = [dict(r._mapping) for r in rows]
 
         return out
                 
@@ -483,17 +483,17 @@ def sales_dash_warehouse_return(filters:DashboardRequest):
                 out["charts"]["return_warehouse_performance"] = [dict(r._mapping) for r in rows]
 
                 # Warehouse wise return trend
-                # query = f"""
-                #         SELECT
-                #         {r_period_sql} AS period_label,
-                #         w.warehouse_code || '-' || w.warehouse_name AS warehouse_name,
-                #         {return_quantity} AS value
-                #         {return_base_sql}
-                #         GROUP BY period_label,w.warehouse_name,w.warehouse_code,{r_order_sql}
-                #         ORDER BY {r_order_sql}
-                # """
-                # rows = conn.execute(text(query), r_params).fetchall()
-                # out["trend_line"]= [dict(r._mapping) for r in rows]
+                query = f"""
+                        SELECT
+                        {r_period_sql} AS period_label,
+                        w.warehouse_code || '-' || w.warehouse_name AS warehouse_name,
+                        {return_quantity} AS value
+                        {return_base_sql}
+                        GROUP BY period_label,w.warehouse_name,w.warehouse_code,{r_order_sql}
+                        ORDER BY {r_order_sql}
+                """
+                rows = conn.execute(text(query), r_params).fetchall()
+                out["trend_line"]= [dict(r._mapping) for r in rows]
 
         return out
                 
