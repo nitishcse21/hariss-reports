@@ -383,3 +383,87 @@ def get_filters(
 
     return out
 
+
+
+
+@router.get("/filter-customer")
+def filter_customer(
+    customer_channel_ids: Optional[str] = Query(None),
+    customer_category_ids: Optional[str] = Query(None),
+):
+    
+    customer_channel_ids_list = parse_csv_ids(customer_channel_ids)
+    customer_category_ids_list = parse_csv_ids(customer_category_ids)
+
+    out = {}
+
+    try:
+        with engine.connect() as conn:
+            q = "SELECT id, outlet_channel FROM outlet_channel ORDER BY outlet_channel"
+            out["channel_categories"] = [dict(r._mapping) for r in conn.execute(text(q)).fetchall()]
+
+            # If channel filter applied → filter categories
+            if customer_channel_ids_list:
+                q = """
+                SELECT id, customer_category_name
+                FROM customer_categories
+                WHERE outlet_channel_id IN :ids
+                ORDER BY customer_category_name
+                """
+                out["customer_categories"] = [
+                    dict(r._mapping)
+                    for r in conn.execute(text(q), {"ids": tuple(customer_channel_ids_list)}).fetchall()
+                ]
+            else:
+                q = "SELECT id, customer_category_name FROM customer_categories ORDER BY customer_category_name"
+                out["customer_categories"] = [dict(r._mapping) for r in conn.execute(text(q)).fetchall()]
+
+            # Customer filter logic
+            if customer_channel_ids_list and customer_category_ids_list:
+                q = """
+                SELECT id, osa_code || ' - ' || name AS label
+                FROM agent_customers
+                WHERE outlet_channel_id IN :channels
+                AND category_id IN :categories
+                ORDER BY name
+                """
+                out["customers"] = [
+                    dict(r._mapping)
+                    for r in conn.execute(
+                        text(q),
+                        {"channels": tuple(customer_channel_ids_list), "categories": tuple(customer_category_ids_list)},
+                    ).fetchall()
+                ]
+
+            elif customer_channel_ids_list:
+                q = """
+                SELECT id, osa_code || ' - ' || name AS label
+                FROM agent_customers
+                WHERE outlet_channel_id IN :channels
+                ORDER BY name
+                """
+                out["customers"] = [
+                    dict(r._mapping)
+                    for r in conn.execute(text(q), {"channels": tuple(customer_channel_ids_list)}).fetchall()
+                ]
+
+            elif customer_category_ids_list:
+                q = """
+                SELECT id, osa_code || ' - ' || name AS label
+                FROM agent_customers
+                WHERE category_id IN :categories
+                ORDER BY name
+                """
+                out["customers"] = [
+                    dict(r._mapping)
+                    for r in conn.execute(text(q), {"categories": tuple(customer_category_ids_list)}).fetchall()
+                ]
+
+            else:
+                out["customers"] = []
+
+    except Exception as e:
+        print("FILTER ERROR:", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return out

@@ -31,6 +31,7 @@ from app.promotion_report.routes.promotion_filter import router as promotion_fil
 
 from app.fridge_tracking_report.routes.fridge_filter import router as fridge_filter
 from app.fridge_tracking_report.routes.fridge_table import router as fridge_table
+from app.fridge_tracking_report.routes.fridge_dashboart import router as fridge_dashboard
 
 
 from app.dashboard.routes.sales_dashboard import router as sale_dashboard
@@ -75,12 +76,14 @@ app.include_router(visit_table, prefix="/api")
 
 app.include_router(promotion_filter, prefix="/api")
 
+app.include_router(fridge_filter, prefix="/api")
+app.include_router(fridge_table, prefix="/api")
+app.include_router(fridge_dashboard, prefix="/api")
+
 app.include_router(sale_dashboard, prefix="/api")
 
 app.include_router(cust_dashboard, prefix="/api")
 
-app.include_router(fridge_filter, prefix="/api")
-app.include_router(fridge_table, prefix="/api")
 
 
 

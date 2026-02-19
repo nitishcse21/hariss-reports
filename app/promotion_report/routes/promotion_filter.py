@@ -6,7 +6,7 @@ from app.promotion_report.utils.promotion_common_helper import parse_csv_ids
 
 router = APIRouter()
 
-@router.get("promotion-filter")
+@router.get("/promotion-filter")
 def promotion_filter(
     company_ids:Optional[str] = Query(None),
     region_ids:Optional[str] = Query(None),

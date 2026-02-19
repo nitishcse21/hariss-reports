@@ -25,7 +25,7 @@ def fridge_table(
                 JOIN tbl_route rt ON rt.id = ft.route_id
                 JOIN agent_customers ac ON ac.id = ft.customer_id
                 JOIN salesman s ON s.id = ft.salesman_id
-                JOIN tbl_add_chillers tac ON tac.customer_id = ac.id
+                LEFT JOIN tbl_add_chillers tac ON tac.customer_id = ac.id
                 JOIN tbl_warehouse w ON w.id = ac.warehouse
                 JOIN tbl_region r ON r.id = w.region_id
                 JOIN tbl_areas a ON a.id = w.area_id                
@@ -49,7 +49,7 @@ def fridge_table(
                 ft.have_fridge,
                 tac.serial_number AS assign_serial_number,
                 ft.serial_no AS captured_serial_number,
-                ft.complaint_type AS reason,
+                ft.complaint_type AS complaint_type,
                 ft.latitude,
                 ft.longitude,
                 ft.image,
