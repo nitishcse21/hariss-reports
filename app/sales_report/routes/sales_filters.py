@@ -390,6 +390,7 @@ def get_filters(
 def filter_customer(
     customer_channel_ids: Optional[str] = Query(None),
     customer_category_ids: Optional[str] = Query(None),
+    search: Optional[str] = Query(None)   # <-- new search param
 ):
     
     customer_channel_ids_list = parse_csv_ids(customer_channel_ids)
@@ -399,10 +400,11 @@ def filter_customer(
 
     try:
         with engine.connect() as conn:
+            # Channels
             q = "SELECT id, outlet_channel FROM outlet_channel ORDER BY outlet_channel"
             out["channel_categories"] = [dict(r._mapping) for r in conn.execute(text(q)).fetchall()]
 
-            # If channel filter applied → filter categories
+            # Categories
             if customer_channel_ids_list:
                 q = """
                 SELECT id, customer_category_name
@@ -418,49 +420,44 @@ def filter_customer(
                 q = "SELECT id, customer_category_name FROM customer_categories ORDER BY customer_category_name"
                 out["customer_categories"] = [dict(r._mapping) for r in conn.execute(text(q)).fetchall()]
 
-            # Customer filter logic
-            if customer_channel_ids_list and customer_category_ids_list:
-                q = """
-                SELECT id, osa_code || ' - ' || name AS label
-                FROM agent_customers
-                WHERE outlet_channel_id IN :channels
-                AND category_id IN :categories
-                ORDER BY name
-                """
-                out["customers"] = [
-                    dict(r._mapping)
-                    for r in conn.execute(
-                        text(q),
-                        {"channels": tuple(customer_channel_ids_list), "categories": tuple(customer_category_ids_list)},
-                    ).fetchall()
-                ]
+            # -------------------------
+            # Customer filter with search
+            # -------------------------
+            conditions = []
+            params = {}
 
-            elif customer_channel_ids_list:
-                q = """
-                SELECT id, osa_code || ' - ' || name AS label
-                FROM agent_customers
-                WHERE outlet_channel_id IN :channels
-                ORDER BY name
-                """
-                out["customers"] = [
-                    dict(r._mapping)
-                    for r in conn.execute(text(q), {"channels": tuple(customer_channel_ids_list)}).fetchall()
-                ]
+            if customer_channel_ids_list:
+                conditions.append("outlet_channel_id IN :channels")
+                params["channels"] = tuple(customer_channel_ids_list)
 
-            elif customer_category_ids_list:
-                q = """
-                SELECT id, osa_code || ' - ' || name AS label
-                FROM agent_customers
-                WHERE category_id IN :categories
-                ORDER BY name
-                """
-                out["customers"] = [
-                    dict(r._mapping)
-                    for r in conn.execute(text(q), {"categories": tuple(customer_category_ids_list)}).fetchall()
-                ]
+            if customer_category_ids_list:
+                conditions.append("category_id IN :categories")
+                params["categories"] = tuple(customer_category_ids_list)
 
-            else:
+            # Search by name or osa_code
+            if search:
+                conditions.append("(name ILIKE :search OR osa_code ILIKE :search)")
+                params["search"] = f"%{search}%"
+
+            # Build query
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+            # If no filters and no search → return empty (optional behavior)
+            if not conditions:
                 out["customers"] = []
+            else:
+                q = f"""
+                SELECT id, osa_code || ' - ' || name AS label
+                FROM agent_customers
+                {where_clause}
+                ORDER BY name
+                LIMIT 100
+                """
+
+                out["customers"] = [
+                    dict(r._mapping)
+                    for r in conn.execute(text(q), params).fetchall()
+                ]
 
     except Exception as e:
         print("FILTER ERROR:", e)
