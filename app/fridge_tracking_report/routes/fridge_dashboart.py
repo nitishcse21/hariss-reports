@@ -76,7 +76,6 @@ def fridge_availability_chart(filters: FridgeTrackingRequest):
 
     with engine.connect() as conn:
         rows = conn.execute(text(query), params).mappings().all()
-
     return rows
 
 

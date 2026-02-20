@@ -58,11 +58,25 @@ def fridge_table(
                 ORDER BY ft.created_at
                 LIMIT :limit OFFSET :offset
             """
+        
         rows = conn.execute(text(query), params).fetchall()
-        rows_data = [dict(r._mapping) for r in rows]
+        # rows_data = [dict(r._mapping) for r in rows]
+        rows_data = []
         total_pages = (total_rows + ROW_PER_PAGE - 1) // ROW_PER_PAGE
         base_url = str(request.url).split("?")[0]
-
+        BASE_URL = "http://osa.harissint.com/upload_image/fridge_tracking_report/"
+        
+        for r in rows:
+            row = dict(r._mapping)
+            if row.get("image"):
+                images = row["image"].split(",")
+                row["image"] = [
+                    BASE_URL + img.strip()
+                    for img in images if img.strip()
+                ]
+            else:
+                row["image"] = []
+            rows_data.append(row)
         return {
             "total_rows": total_rows,
             "total_pages": total_pages,
