@@ -42,6 +42,7 @@ def build_query_parts(filters: FilterSelection):
         where_fragments.append("id.item_total <> 0")
 
     if filters.company_ids:
+        joins.append("JOIN tbl_warehouse w ON w.id = ih.warehouse_id")
         where_fragments.append("ih.company_id = ANY(:company_ids)")
         params["company_ids"] = filters.company_ids
 

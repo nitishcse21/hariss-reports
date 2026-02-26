@@ -1,5 +1,7 @@
 from datetime import datetime
 from sqlalchemy import text
+from app.sales_report.schemas.sales_schema import FilterSelection
+from app.sales_report.utils.sales_common_helper import quantity_expr_sql,build_query_parts,validate_mandatory
 
 
 def choose_granularity(from_date_str: str, to_date_str: str) -> tuple[str, str, str]:  
@@ -37,6 +39,43 @@ def ensure_warehouse_join(joins: list[str]):
         joins.append(wh_join)
 
 
+
+def prepare_dashboard_context(filters: FilterSelection):
+    validate_mandatory(filters)
+
+    granularity, period_label_sql, order_by_sql = choose_granularity(
+        filters.from_date, filters.to_date
+    )
+
+    joins, where_fragments, params = build_query_parts(filters)
+    where_sql = " AND ".join(where_fragments)
+    join_sql = "\n".join(joins)
+
+    quantity = quantity_expr_sql()
+    value_expr = (
+        quantity if filters.search_type.lower() == "quantity"
+        else "SUM(id.item_total)"
+    )
+
+    return {
+        "granularity": granularity,
+        "period_label_sql": period_label_sql,
+        "order_by_sql": order_by_sql,
+        "join_sql": join_sql,
+        "where_sql": where_sql,
+        "params": params,
+        "value_expr": value_expr,
+    }
+
+
+def detect_level(filters: FilterSelection):
+    if filters.warehouse_ids:
+        return "warehouse"
+    elif filters.area_ids:
+        return "area"
+    elif filters.region_ids:
+        return "region"
+    return "company"
 
 
 def get_top_tables(

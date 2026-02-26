@@ -31,7 +31,7 @@ from app.promotion_report.routes.promotion_filter import router as promotion_fil
 
 from app.fridge_tracking_report.routes.fridge_filter import router as fridge_filter
 from app.fridge_tracking_report.routes.fridge_table import router as fridge_table
-from app.fridge_tracking_report.routes.fridge_dashboart import router as fridge_dashboard
+from app.fridge_tracking_report.routes.fridge_dashboard import router as fridge_dashboard
 
 
 from app.dashboard.routes.sales_dashboard import router as sale_dashboard
@@ -39,6 +39,10 @@ from app.dashboard.routes.sales_dashboard import router as sale_dashboard
 
 from app.customer_dashboard.routes.cust_dashboard import router as cust_dashboard
 
+from app.sales_report.routes.company_level_dash import router as company_level
+from app.sales_report.routes.region_level_dash import router as region_level
+from app.sales_report.routes.area_level_dash import router as area_level
+from app.sales_report.routes.warehouse_level_dash import router as warehouse_level
 
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -83,6 +87,12 @@ app.include_router(fridge_dashboard, prefix="/api")
 app.include_router(sale_dashboard, prefix="/api")
 
 app.include_router(cust_dashboard, prefix="/api")
+
+
+app.include_router(company_level, prefix="/api")
+app.include_router(region_level, prefix="/api")
+app.include_router(area_level, prefix="/api")
+app.include_router(warehouse_level, prefix="/api")
 
 
 
