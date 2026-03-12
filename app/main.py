@@ -28,6 +28,9 @@ from app.visit_report.routes.visit_dashboard import router as visit_dashboard
 from app.visit_report.routes.visit_table import router as visit_table
 
 from app.promotion_report.routes.promotion_filter import router as promotion_filter
+from app.promotion_report.routes.promotion_table import router as promotion_table
+from app.promotion_report.routes.promotion_status_update import router as promotion_status_update
+from app.promotion_report.routes.promotion_dashboard import router as promotion_dashboard
 
 from app.fridge_tracking_report.routes.fridge_filter import router as fridge_filter
 from app.fridge_tracking_report.routes.fridge_table import router as fridge_table
@@ -79,6 +82,9 @@ app.include_router(visit_dashboard, prefix="/api")
 app.include_router(visit_table, prefix="/api")
 
 app.include_router(promotion_filter, prefix="/api")
+app.include_router(promotion_table, prefix="/api")
+app.include_router(promotion_status_update, prefix="/api")
+app.include_router(promotion_dashboard, prefix="/api")
 
 app.include_router(fridge_filter, prefix="/api")
 app.include_router(fridge_table, prefix="/api")
@@ -87,7 +93,6 @@ app.include_router(fridge_dashboard, prefix="/api")
 app.include_router(sale_dashboard, prefix="/api")
 
 app.include_router(cust_dashboard, prefix="/api")
-
 
 app.include_router(company_level, prefix="/api")
 app.include_router(region_level, prefix="/api")

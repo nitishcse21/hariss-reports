@@ -38,6 +38,8 @@ def build_query_parts(
     params["from_date"] = filters.from_date
     params["to_date"] = filters.to_date
 
+    where_fragments.append("idl.item_total = 0")
+
     if filters.company_ids:
         joins.append(
             "JOIN tbl_warehouse w ON w.id = ih.warehouse_id"
@@ -76,8 +78,97 @@ def build_query_parts(
             "ih.warehouse_id = ANY(:warehouse_ids)"
         )
         params["warehouse_ids"] = filters.warehouse_ids
+    
+    status_case = """
+                CASE
+                    WHEN idl.rm_approver_id > 0
+                        AND idl.rmaction_date IS NOT NULL
+                    THEN 'approved by rsm'
+
+                    WHEN idl.rm_reject_id > 0
+                    THEN 'rejected by rsm'
+
+                    WHEN idl.rejected_by > 0
+                    THEN 'rejected by asm'
+
+                    WHEN idl.approver_id > 0
+                        AND idl.approved_date IS NOT NULL
+                    THEN 'approved by asm'
+
+                    ELSE 'pending'
+                END
+                """
+
+    if filters.status:
+        where_fragments.append(f"LOWER({status_case}) = LOWER(:status)")
+        params["status"] = filters.status
+        # if filters.status:
+
+    #     if filters.status == "pending":
+    #         where_fragments.append("""
+    #             idl.approver_id IS NULL
+    #             AND idl.rejected_by IS NULL
+    #             AND idl.rm_approver_id IS NULL
+    #             AND idl.rm_reject_id IS NULL
+    #         """)
+
+    #     elif filters.status == "approved by ASM":
+    #         where_fragments.append("""
+    #             idl.approver_id IS NOT NULL
+    #             AND idl.approved_date IS NOT NULL
+    #             AND idl.rm_approver_id IS NULL
+    #             AND idl.rm_reject_id IS NULL
+    #         """)
+
+    #     elif filters.status == "rejected by ASM":
+    #         where_fragments.append("""
+    #             idl.rejected_by IS NOT NULL
+    #             AND idl.comment_for_rejection IS NOT NULL
+    #         """)
+
+    #     elif filters.status == "rejected by RSM":
+    #         where_fragments.append("""
+    #             idl.rm_reject_id IS NOT NULL
+    #             AND idl.comment_for_rejection IS NOT NULL
+    #         """)
+
+    #     elif filters.status == "approved by RSM":
+    #         where_fragments.append("""
+    #             idl.rm_approver_id IS NOT NULL
+    #             AND idl.rmaction_date IS NOT NULL
+    #         """)
+
 
 
     joins = list(dict.fromkeys(joins))
 
-    return joins, where_fragments, params
+    return joins, where_fragments, params,status_case
+
+
+def choose_granularity(from_date_str: str, to_date_str: str) -> tuple[str, str, str]:  
+    d1 = datetime.fromisoformat(from_date_str).date()
+    d2 = datetime.fromisoformat(to_date_str).date()
+    days = (d2 - d1).days + 1
+
+    if days <= 31:
+        # day wise
+        granularity = "daily"
+        period_label_sql = "TO_CHAR(ih.invoice_date, 'YYYY-MM-DD')"
+        order_by_sql = "ih.invoice_date"
+    elif days <= 183:
+        # week wise
+        granularity = "weekly"
+        period_label_sql =  """CONCAT(
+        TO_CHAR(DATE_TRUNC('week', ih.invoice_date), 'DD Mon'),
+        ' - ',
+        TO_CHAR(DATE_TRUNC('week', ih.invoice_date) + INTERVAL '6 days', 'DD Mon')
+    )
+        """
+        order_by_sql = "DATE_TRUNC('week', ih.invoice_date)"
+    else:
+        # month wise
+        granularity = "monthly"
+        period_label_sql = "TO_CHAR(date_trunc('month', ih.invoice_date), 'Mon-YYYY')"
+        order_by_sql = "DATE_TRUNC('month', ih.invoice_date)"
+
+    return granularity, period_label_sql, order_by_sql
